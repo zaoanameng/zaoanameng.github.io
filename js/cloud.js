@@ -1,0 +1,210 @@
+/* ==========================================================
+   云端数据层：登录 / 收藏 / 日记 / 留言
+   ========================================================== */
+(function () {
+  const cfg = window.WB_CONFIG;
+  const SDK = window.WorkBuddyCloud;
+  const cloud = SDK
+    ? SDK.createWorkBuddyCloud({
+        endpoint: cfg.endpoint,
+        oauthRelayBaseUrl: cfg.oauthRelayBaseUrl,
+        publishableKey: cfg.publishableKey
+      })
+    : new Proxy({}, { get() { throw new Error("云端组件没加载出来，刷新一下页面再试"); } });
+  window.cloud = cloud;
+
+  function unwrap(res) {
+    if (res && res.error) throw res.error;
+    return res ? res.data : null;
+  }
+  function errText(e) {
+    if (!e) return "出了点小状况，稍后再试试";
+    if (e.code === "23505") return "这个已经存在了";
+    if (e.code === "42501") return "没有权限这么做（可能还没登录）";
+    if (e.code === "42P01") return "数据表还没准备好";
+    return e.message || String(e);
+  }
+
+  /* ---------------- 登录 ---------------- */
+  const auth = {
+    async session() {
+      try {
+        const { data, error } = await cloud.auth.getSession();
+        if (error) return null;
+        return data || null;
+      } catch (_) {
+        return null;
+      }
+    },
+    async signInWorkBuddy() {
+      const back = new URL(location.href);
+      back.pathname = "/";
+      ["code", "state", "provider"].forEach((k) => back.searchParams.delete(k));
+      const { data, error } = await cloud.auth.signInWithOAuth({
+        provider: "workbuddy",
+        redirectTo: back.toString()
+      });
+      if (error) throw error;
+      if (!data || !data.url) throw new Error("没能拿到登录链接");
+      location.assign(data.url); // 必须同标签页跳转
+    },
+    async sendEmailCode(email) {
+      const r = await cloud.auth.sendOtp({ email });
+      if (r.error) throw r.error;
+      return r.data;
+    },
+    async verifyEmailCode(email, pending, token) {
+      const r = await cloud.auth.verifyOtp({
+        email,
+        verificationId: pending.verificationId,
+        isExistingUser: pending.isExistingUser,
+        token
+      });
+      if (r.error) throw r.error;
+      return r.data;
+    },
+    async signOut() {
+      try { await cloud.auth.signOut(); } catch (_) {}
+    }
+  };
+
+  /* ---------------- 站点主人 ---------------- */
+  const owner = {
+    async get() {
+      const { data, error } = await cloud.database
+        .from("site_owner").select("*").eq("id", 1).maybeSingle();
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    },
+    async claim(uid, name) {
+      const { data, error } = await cloud.database
+        .from("site_owner")
+        .insert({ id: 1, uid, name: name || null })
+        .select();
+      if (error) throw error;
+      return (data && data[0]) || null;
+    },
+    async save(patch) {
+      const { data, error } = await cloud.database
+        .from("site_owner").update(patch).eq("id", 1).select();
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error("没能保存（这个账号不是看管人）");
+      return data[0];
+    }
+  };
+
+  /* ---------------- 收藏卡片 ---------------- */
+  const items = {
+    async list(kind) {
+      const { data, error } = await cloud.database
+        .from("items").select("*").eq("kind", kind)
+        .order("created_at", { ascending: false }).limit(400);
+      if (error) throw error;
+      return data || [];
+    },
+    async all() {
+      const { data, error } = await cloud.database
+        .from("items").select("id,kind,created_at").limit(1000);
+      if (error) return [];
+      return data || [];
+    },
+    async add(kind, payload) {
+      const { data, error } = await cloud.database
+        .from("items").insert({ kind, ...payload }).select();
+      if (error) throw error;
+      return (data && data[0]) || null;
+    },
+    async update(id, patch) {
+      const { data, error } = await cloud.database
+        .from("items").update(patch).eq("id", id).select();
+      if (error) throw error;
+      if (!data || !data.length) throw new Error("没能保存（这条不是你的内容）");
+      return data[0];
+    },
+    async remove(id) {
+      const { data, error } = await cloud.database
+        .from("items").delete().eq("id", id).select();
+      if (error) throw error;
+      if (!data || !data.length) throw new Error("没能删除");
+      return true;
+    }
+  };
+
+  /* ---------------- 日记 / 摘录 ---------------- */
+  const posts = {
+    async list(limit = 200) {
+      const { data, error } = await cloud.database
+        .from("posts").select("*")
+        .order("created_at", { ascending: false }).limit(limit);
+      if (error) throw error;
+      return data || [];
+    },
+    async add(payload) {
+      const { data, error } = await cloud.database
+        .from("posts").insert(payload).select();
+      if (error) throw error;
+      return (data && data[0]) || null;
+    },
+    async update(id, patch) {
+      const { data, error } = await cloud.database
+        .from("posts").update(patch).eq("id", id).select();
+      if (error) throw error;
+      if (!data || !data.length) throw new Error("没能保存");
+      return data[0];
+    },
+    async remove(id) {
+      const { data, error } = await cloud.database
+        .from("posts").delete().eq("id", id).select();
+      if (error) throw error;
+      return true;
+    }
+  };
+
+  /* ---------------- 留言 / 发言 ---------------- */
+  const messages = {
+    async list(scope, itemId) {
+      let q = cloud.database.from("messages").select("*").eq("scope", scope);
+      if (itemId != null) q = q.eq("item_id", itemId);
+      else q = q.is("item_id", null);
+      const { data, error } = await q.order("created_at", { ascending: true }).limit(400);
+      if (error) throw error;
+      return data || [];
+    },
+    async add(payload) {
+      const { data, error } = await cloud.database
+        .from("messages").insert(payload).select();
+      if (error) throw error;
+      return (data && data[0]) || null;
+    },
+    async remove(id) {
+      const { data, error } = await cloud.database
+        .from("messages").delete().eq("id", id).select();
+      if (error) throw error;
+      return true;
+    },
+    async countAll() {
+      const { count, error } = await cloud.database
+        .from("messages").select("*", { count: "exact", head: true }).eq("scope", "guest");
+      if (error) return 0;
+      return count || 0;
+    }
+  };
+
+  /* ---------------- 访客记录 ---------------- */
+  const stats = {
+    async track(payload) {
+      const { error } = await cloud.database.from("pageviews").insert(payload);
+      if (error) throw error;
+      return true;
+    },
+    async list(limit = 5000) {
+      const { data, error } = await cloud.database
+        .from("pageviews").select("*")
+        .order("created_at", { ascending: false }).limit(limit);
+      if (error) throw error;
+      return data || [];
+    }
+  };
+
+  window.API = { auth, owner, items, posts, messages, stats, errText };
+})();

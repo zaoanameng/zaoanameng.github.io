@@ -431,14 +431,13 @@
     openModal(
       "<h3>Owner log in</h3>" +
       '<p class="hint" style="margin:-12px 0 22px">Only the owner can add or change things. Visitors don\'t need an account.</p>' +
-      '<button class="btn primary" id="wbLogin" type="button" style="width:100%">Continue with a WorkBuddy account</button>' +
-      '<div class="divider"><span></span>or use email<span></span></div>' +
       '<div class="field" style="margin-bottom:18px"><label>Email</label>' +
       '<input class="input" id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email"></div>' +
       '<div class="field"><label>Code</label><div style="display:flex;gap:14px;align-items:flex-end">' +
       '<input class="input" id="loginCode" inputmode="numeric" placeholder="6 digits">' +
       '<button class="btn sm" id="sendCode" type="button" style="flex:none">send code</button></div></div>' +
-      '<div class="modal-foot"><button class="btn" id="emailLogin" type="button">log in</button></div>' +
+      '<p class="hint" style="margin:10px 0 0">We\'ll email you a 6-digit code — no password needed.</p>' +
+      '<div class="modal-foot"><button class="btn primary" id="emailLogin" type="button">log in</button></div>' +
       '<p class="hint" id="loginMsg" style="margin-top:16px"></p>',
       { sticky: true }
     );
@@ -449,17 +448,6 @@
       if (!el) return;
       el.textContent = t || "";
       el.style.color = err ? "var(--red)" : "var(--ink-3)";
-    };
-
-    $("#wbLogin").onclick = async (e) => {
-      e.target.disabled = true;
-      try {
-        sessionStorage.setItem("wb_back", location.hash || "#/contents");
-        await API.auth.signInWorkBuddy();
-      } catch (err) {
-        e.target.disabled = false;
-        msg("Couldn't log in: " + (err.message || err), true);
-      }
     };
 
     $("#sendCode").onclick = async (e) => {

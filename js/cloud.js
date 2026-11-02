@@ -36,18 +36,6 @@
         return null;
       }
     },
-    async signInWorkBuddy() {
-      const back = new URL(location.href);
-      back.pathname = "/";
-      ["code", "state", "provider"].forEach((k) => back.searchParams.delete(k));
-      const { data, error } = await cloud.auth.signInWithOAuth({
-        provider: "workbuddy",
-        redirectTo: back.toString()
-      });
-      if (error) throw error;
-      if (!data || !data.url) throw new Error("没能拿到登录链接");
-      location.assign(data.url); // 必须同标签页跳转
-    },
     async sendEmailCode(email) {
       const r = await cloud.auth.sendOtp({ email });
       if (r.error) throw r.error;

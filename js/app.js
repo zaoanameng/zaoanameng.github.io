@@ -642,18 +642,72 @@
   }
 
   /* ---------------- 9. 目录 ---------------- */
-  async function loadCounts() {
+  /* 数量缓存：进目录页先用上次的数字画出来，再去云端悄悄更新，避免“先空着再蹦出来” */
+  const COUNTS_KEY = "mh_counts";
+  function cachedCounts() {
+    try {
+      const o = JSON.parse(localStorage.getItem(COUNTS_KEY) || "null");
+      if (!o || !o.v || typeof o.v !== "object") return null;
+      return o.v;
+    } catch (_) { return null; }
+  }
+  function cacheCounts(v) {
+    try { localStorage.setItem(COUNTS_KEY, JSON.stringify({ t: Date.now(), v: v })); } catch (_) {}
+  }
+
+  let countsInflight = null;
+  function loadCounts() {
+    if (countsInflight) return countsInflight;
+    countsInflight = loadCountsOnce().then(
+      (v) => { countsInflight = null; return v; },
+      (e) => { countsInflight = null; throw e; }
+    );
+    return countsInflight;
+  }
+
+  async function loadCountsOnce() {
     const counts = {};
-    try {
-      const photos = await API.items.list("photo");
-      counts.photo = photos.length;
-    } catch (_) {}
-    try {
-      const { data } = await window.cloud.database.from("posts").select("id", { count: "exact" });
-      counts.diary = (data || []).length;
-    } catch (_) {}
-    try { counts.guest = await API.messages.countAll(); } catch (_) {}
-    S.counts = counts;
+    const jobs = [
+      (async () => { counts.photo = await API.items.count("photo"); })(),
+      (async () => {
+        const r = await window.cloud.database
+          .from("posts").select("id").limit(2000);
+        if (!r.error) counts.diary = (r.data || []).length;
+      })(),
+      (async () => { counts.guest = await API.messages.countAll(); })()
+    ];
+    await Promise.allSettled(jobs);
+    S.counts = Object.assign({}, cachedCounts() || {}, counts);
+    if (Object.keys(counts).length) cacheCounts(S.counts);
+    return S.counts;
+  }
+
+  /* 页面空闲时先把数量取回来存好，等真的点进目录就是现成的 */
+  function prefetchCounts() {
+    const run = () => { loadCounts().catch(() => {}); };
+    if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 3000 });
+    else setTimeout(run, 1600);
+  }
+
+  /* 数量行永远占位：有数字就写数字，没数字先放三个点，不会因为突然多出一行把图标顶开 */
+  function paintCounts(list, counts, done) {
+    MODULES.forEach((m) => {
+      const el = list.querySelector('[data-count="' + m.key + '"]');
+      if (!el) return;
+      const n = counts && typeof counts[m.key] === "number" ? counts[m.key] : null;
+      if (n === null) {
+        el.classList.toggle("is-loading", !done);
+        el.textContent = done ? "—" : "· · ·";
+        return;
+      }
+      const txt = n > 0 ? n + " " + m.unit : "empty";
+      if (el.classList.contains("is-loading")) {
+        el.classList.remove("is-loading");
+        el.classList.add("is-settled");
+        setTimeout(() => el.classList.remove("is-settled"), 520);
+      }
+      el.textContent = txt;
+    });
   }
 
   async function renderContents() {
@@ -677,13 +731,12 @@
       if (row) { e.preventDefault(); go("module", row.dataset.mod); }
     };
 
-    await loadCounts();
-    MODULES.forEach((m) => {
-      const el = list.querySelector('[data-count="' + m.key + '"]');
-      if (!el) return;
-      const n = S.counts[m.key] || 0;
-      el.textContent = n > 0 ? n + " " + m.unit : "empty";
-    });
+    /* 先画缓存（老访客瞬间就有数字），没有再退成三个点 */
+    paintCounts(list, cachedCounts(), false);
+
+    const fresh = await loadCounts();
+    if (!list.isConnected) return;   /* 中途切走了就别再写 */
+    paintCounts(list, fresh, true);
   }
 
   /* ---------------- 9.5 访客记录（站主专用） ---------------- */
@@ -1672,6 +1725,8 @@
     else if (st.view === "contents") go("contents", null, true);
     else if (st.view === "stats") go("stats", null, true);
     else { render("cover"); updateAuthSlots(); trackView(); }
+
+    prefetchCounts();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

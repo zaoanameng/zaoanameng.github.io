@@ -90,6 +90,13 @@
       if (error) throw error;
       return data || [];
     },
+    /* 只要数量：只取 id，不下载图片 base64，快几十倍 */
+    async count(kind) {
+      const { data, error } = await cloud.database
+        .from("items").select("id").eq("kind", kind).limit(2000);
+      if (error) throw error;
+      return (data || []).length;
+    },
     async all() {
       const { data, error } = await cloud.database
         .from("items").select("id,kind,created_at").limit(1000);

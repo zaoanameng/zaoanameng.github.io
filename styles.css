@@ -386,8 +386,13 @@ a{color:inherit;}
 .cat-count{
   margin-top:3px;font-size:.62rem;letter-spacing:.16em;
   color:#B3BCCD;
+  min-height:1.2em;line-height:1.2;
+  transition:color .35s ease,opacity .35s ease;
 }
-.cat-count:empty{display:none;}
+.cat-count.is-loading{color:#C3CBD9;animation:catBreath 1.6s ease-in-out infinite;}
+.cat-count.is-settled{animation:catSettle .5s ease both;}
+@keyframes catBreath{0%,100%{opacity:.55;}50%{opacity:1;}}
+@keyframes catSettle{from{opacity:.25;transform:translateY(3px);}to{opacity:1;transform:none;}}
 
 /* ==========================================================
    模块

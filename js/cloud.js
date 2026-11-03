@@ -11,8 +11,20 @@
      这些接口本来就只靠 body 里的验证码 / verification_token 认证。 */
   const AUTH_ONLY = /\/auth\/v1\/(verification|signin|signup|token|reset)/;
   const rawFetch = (window.fetch || function () {}).bind(window);
+  /* 登录类接口必须走 /relay 通道：
+     主站域名下的 /.cloud/auth/* 会被托管平台自己拦掉（401 且不带网关头），
+     只有 /relay 是我们服务端处理的。分享码是网关放行 /relay 的必要参数。 */
+  const RSC = "3L7ECEILFA";
+  function viaRelay(u) {
+    const s = String(u);
+    if (!AUTH_ONLY.test(s) || s.indexOf("/relay/") !== -1) return u;
+    const out = s.replace("/.cloud/auth/", "/relay/.cloud/auth/");
+    if (out === s) return u;
+    return out + (out.indexOf("?") === -1 ? "?" : "&") + "sharecode=" + RSC;
+  }
   function cleanFetch(url, init) {
     try {
+      url = viaRelay(url);
       if (AUTH_ONLY.test(String(url))) {
         const h = new Headers((init && init.headers) || {});
         ["authorization", "x-relay-auth", "apikey"].forEach((k) => h.delete(k));
@@ -41,7 +53,14 @@
     if (e.code === "23505") return "这个已经存在了";
     if (e.code === "42501") return "没有权限这么做（可能还没登录）";
     if (e.code === "42P01") return "数据表还没准备好";
-    return e.message || String(e);
+    /* 云网关的错误长这样：{ error: "invalid_grant", error_description: "..." }
+       以前直接 String(e) 会显示成 [object Object] */
+    const code = e.error || e.code;
+    if (code === "invalid_grant") return "登录状态已失效，请重新登录一次";
+    if (code === "origin_not_allowed") return "这个域名暂时不允许访问数据";
+    if (code === "too_many_requests") return "操作太快了，等一分钟再试";
+    return e.message || e.error_description || e.details ||
+      (typeof e === "string" ? e : "") || "出了点小状况，稍后再试试";
   }
 
   /* ---------------- 登录 ---------------- */

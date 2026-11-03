@@ -363,6 +363,14 @@
   function loadingHTML(text) {
     return '<div class="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span> ' + esc(text || "翻页中") + "</div>";
   }
+  /* 提醒用户该点某个按钮：轻轻晃一下 */
+  function headShake(el) {
+    if (!el) return;
+    el.classList.remove("shake");
+    void el.offsetWidth;
+    el.classList.add("shake");
+    setTimeout(() => { try { el.classList.remove("shake"); } catch (_) {} }, 600);
+  }
 
   /* ---------------- 4. 弹窗 / 大图 ---------------- */
   const modalRoot = $("#modal-root");
@@ -436,13 +444,27 @@
       '<div class="field"><label>Code</label><div style="display:flex;gap:14px;align-items:flex-end">' +
       '<input class="input" id="loginCode" inputmode="numeric" placeholder="6 digits">' +
       '<button class="btn sm" id="sendCode" type="button" style="flex:none">send code</button></div></div>' +
-      '<p class="hint" style="margin:10px 0 0">We\'ll email you a 6-digit code — no password needed.</p>' +
-      '<div class="modal-foot"><button class="btn primary" id="emailLogin" type="button">log in</button></div>' +
+      '<p class="hint" style="margin:10px 0 0" id="loginTip">Tap “send code” first — we\'ll email you a 6-digit code. No password needed.</p>' +
+      '<div class="modal-foot"><button class="btn primary" id="emailLogin" type="button" disabled title="Tap “send code” first">log in</button></div>' +
       '<p class="hint" id="loginMsg" style="margin-top:16px"></p>',
       { sticky: true }
     );
 
-    let pending = null;
+    /* 验证码的“发送凭证”存进 sessionStorage：关掉弹窗、刷新页面都还在，
+       免得用户手里有码、却因为 pending 丢了被拦成“请先申请验证码” */
+    const OTP_KEY = "mh_otp";
+    const OTP_TTL = 8 * 60 * 1000; /* 验证码本身 5 分钟有效，留点余量 */
+    const loadPending = () => {
+      try {
+        const o = JSON.parse(sessionStorage.getItem(OTP_KEY) || "null");
+        if (!o || !o.verificationId || !o.email) return null;
+        if (Date.now() - (o.ts || 0) > OTP_TTL) return null;
+        return o;
+      } catch (_) { return null; }
+    };
+    const savePending = (p) => { try { sessionStorage.setItem(OTP_KEY, JSON.stringify(p)); } catch (_) {} };
+    const dropPending = () => { try { sessionStorage.removeItem(OTP_KEY); } catch (_) {} };
+
     const msg = (t, err) => {
       const el = $("#loginMsg");
       if (!el) return;
@@ -450,15 +472,45 @@
       el.style.color = err ? "var(--red)" : "var(--ink-3)";
     };
 
-    $("#sendCode").onclick = async (e) => {
-      const email = $("#loginEmail").value.trim();
+    let pending = loadPending();
+    const emailEl = $("#loginEmail");
+    const codeEl = $("#loginCode");
+    const sendBtn = $("#sendCode");
+    const loginBtn = $("#emailLogin");
+
+    /* 记住上次用过的邮箱，省得每次重打 */
+    try {
+      const last = localStorage.getItem("mh_email");
+      if (last) emailEl.value = last;
+    } catch (_) {}
+
+    const setReady = (on) => {
+      loginBtn.disabled = !on;
+      loginBtn.title = on ? "" : "Tap “send code” first";
+    };
+
+    if (pending) {
+      if (!emailEl.value) emailEl.value = pending.email;
+      $("#loginTip").textContent = "Code already sent to " + pending.email + " — enter it below, or send a new one.";
+      setReady(true);
+    } else {
+      setReady(false);
+    }
+
+    sendBtn.onclick = async (e) => {
+      const email = emailEl.value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return msg("Enter a valid email first.", true);
       e.target.disabled = true;
       e.target.textContent = "sending…";
       try {
         API.auth.resetLocal();   /* 清掉可能过期的旧会话，避免网关把它当成“别人的凭证” */
-        pending = Object.assign({ email }, await API.auth.sendEmailCode(email));
-        msg("Code sent — check your inbox (and the spam folder).");
+        pending = Object.assign({ email }, await API.auth.sendEmailCode(email), { ts: Date.now() });
+        savePending(pending);
+        try { localStorage.setItem("mh_email", email); } catch (_) {}
+        msg("Code sent to " + email + " — check your inbox (and the spam folder).");
+        $("#loginTip").textContent = "Code sent — it's valid for 5 minutes.";
+        setReady(true);
+        try { codeEl.focus(); } catch (_) {}
         let n = 60;
         const t = setInterval(() => {
           n -= 1;
@@ -468,15 +520,24 @@
       } catch (err) {
         e.target.disabled = false;
         e.target.textContent = "send code";
+        dropPending();
+        setReady(false);
         msg("Couldn't send: " + (err.message || err), true);
       }
     };
 
-    $("#emailLogin").onclick = async (e) => {
-      const email = $("#loginEmail").value.trim();
-      const code = $("#loginCode").value.trim();
-      if (!pending || pending.email !== email) return msg("Request a code first.", true);
-      if (!code) return msg("Enter the code you received.", true);
+    /* 输入验证码时按回车直接登录 */
+    codeEl.onkeydown = (e) => { if (e.key === "Enter" && !loginBtn.disabled) loginBtn.click(); };
+    emailEl.oninput = () => { if (pending) setReady(pending.email === emailEl.value.trim()); };
+
+    loginBtn.onclick = async (e) => {
+      const email = emailEl.value.trim();
+      const code = codeEl.value.trim();
+      if (!pending || pending.email !== email) {
+        headShake(sendBtn);
+        return msg("Tap “send code” first — we'll email you a 6-digit code.", true);
+      }
+      if (!code) { try { codeEl.focus(); } catch (_) {} return msg("Enter the code you received.", true); }
       e.target.disabled = true;
       const attempt = async () => {
         API.auth.resetLocal();
@@ -488,14 +549,25 @@
         } catch (err) {
           const t = String((err && (err.message || err.code)) || "");
           /* 少数情况下网关仍会拿着旧凭证拦一次，清干净再试一遍就能过 */
-          if (!/session is invalid|another client|invalid_grant|expired/i.test(t)) throw err;
+          if (!/session is invalid|another client|invalid_grant/i.test(t)) throw err;
           await new Promise((r) => setTimeout(r, 350));
           await attempt();
         }
+        dropPending();
         closeModal();
         await onSignedIn();
       } catch (err) {
         e.target.disabled = false;
+        const t = String((err && (err.message || err.code)) || "");
+        /* 码过期 / 用过了：清掉旧凭证，提示重新发一个，而不是让人对着错码反复点 */
+        if (/expired|invalid.*code|code.*invalid|incorrect|not.?found/i.test(t)) {
+          dropPending();
+          setReady(false);
+          sendBtn.textContent = "send code";
+          sendBtn.disabled = false;
+          headShake(sendBtn);
+          return msg("That code didn't work or has expired — tap “send code” for a new one.", true);
+        }
         msg("Log in failed: " + (err.message || err), true);
       }
     };

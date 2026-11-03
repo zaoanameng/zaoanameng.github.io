@@ -312,6 +312,10 @@
   }
 
   /* 记一次访问（主人自己的浏览不计入，免得数据被自己刷） */
+  /* 本会话是否已经记过一次：hash 路由的页面 document.referrer 全程不变，
+     若只靠它判断，站内点来点去永远算「直接访问」。
+     所以第一次按 referrer 判，之后的路由跳转一律记「站内跳转」。 */
+  let trackedAny = false;
   async function trackView() {
     if (S.isOwner) return;
     const cfg = window.WB_CONFIG || {};
@@ -329,7 +333,7 @@
       vid: visitorId(),
       path: pagePath().slice(0, 120),
       ref: (document.referrer || "").slice(0, 400) || null,
-      ref_type: refKind(document.referrer),
+      ref_type: trackedAny ? "internal" : refKind(document.referrer),
       region: region,
       tz: zone || null,
       lang: (navigator.language || "").slice(0, 20) || null,
@@ -348,6 +352,7 @@
         keepalive: true,
         mode: "cors"
       }).catch(function () {});
+      trackedAny = true;
     } catch (_) { /* 记录失败不影响浏览 */ }
   }
 
@@ -835,6 +840,23 @@
   };
   const DEV_LABEL = { desktop: "电脑", mobile: "手机", tablet: "平板" };
 
+  /* 历史埋点用过旧 key（guestbook/journal/gallery/catalog），
+     现在统一是 guest/diary/photo/contents。
+     聚合前先归一，否则同一个页面会在排行里拆成两条、
+     「被看过的页面数」也会多算。 */
+  const PATH_ALIAS = { guestbook: "guest", journal: "diary", gallery: "photo", catalog: "contents" };
+  function normPath(p) {
+    const t = String(p || "cover").trim().toLowerCase().replace(/\/+$/, "");
+    return PATH_ALIAS[t] || t || "cover";
+  }
+  /* 地区写法统一：中文归属地有的用「·」有的用空格，统一成「 · 」 */
+  function prettyRegion(s) {
+    const t = String(s || "").trim();
+    if (!t) return "未知";
+    if (!/[\u4e00-\u9fa5]/.test(t)) return t;
+    return t.split(/\s*·\s*|\s+/).filter(Boolean).join(" · ");
+  }
+
   function dayKey(d) {
     return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
@@ -884,29 +906,31 @@
       const k = dayKey(new Date(r.created_at));
       byDay[k] = (byDay[k] || 0) + 1;
       byRef[r.ref_type || "direct"] = (byRef[r.ref_type || "direct"] || 0) + 1;
-      const p = r.path || "cover";
+      const p = normPath(r.path);
       byPath[p] = (byPath[p] || 0) + 1;
-      byRegion[r.region || "未知"] = (byRegion[r.region || "未知"] || 0) + 1;
+      const rg = prettyRegion(r.region);
+      byRegion[rg] = (byRegion[rg] || 0) + 1;
       if (k === today) { todayPV += 1; todaySet.add(r.vid); }
     });
 
     const pv = rows.length;
     const uv = uvSet.size;
 
-    /* 近 14 天 */
+    /* 近 14 天：标签带月份（跨月不再像日期倒着走） */
     const days = [];
     for (let i = 13; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const k = dayKey(d);
-      days.push({ k, n: byDay[k] || 0, label: d.getDate() });
+      days.push({ k, n: byDay[k] || 0, label: (d.getMonth() + 1) + "/" + d.getDate() });
     }
     const maxDay = Math.max(1, ...days.map((d) => d.n));
 
     const bars = days.map((d) =>
       '<div class="bar-col" title="' + d.k + " · " + d.n + ' 次">' +
         '<span class="bar-n">' + (d.n || "") + "</span>" +
-        '<span class="bar-i" style="height:' + Math.round((d.n / maxDay) * 100) + '%"></span>' +
+        '<span class="bar-i' + (d.n ? "" : " is-zero") + '" style="height:' +
+          (d.n ? Math.round((d.n / maxDay) * 100) : 0) + '%"></span>' +
         '<span class="bar-d">' + d.label + "</span>" +
       "</div>"
     ).join("");
@@ -922,12 +946,12 @@
     const detail = rows.slice(0, 60).map((r) =>
       '<div class="vrow">' +
         '<span class="v-time">' + esc(shortStamp(r.created_at)) + "</span>" +
-        '<span class="v-where">' + esc(r.region || "未知") + "</span>" +
+        '<span class="v-where">' + esc(prettyRegion(r.region)) + "</span>" +
         '<span class="v-dev">' + esc(DEV_LABEL[r.device] || r.device || "—") +
           (r.browser ? " · " + esc(r.browser) : "") +
           (r.os ? " · " + esc(r.os) : "") + "</span>" +
         '<span class="v-ref">' + esc(REF_LABEL[r.ref_type] || "直接访问") + "</span>" +
-        '<span class="v-path">' + esc(PATH_LABEL[r.path] || r.path || "cover") + "</span>" +
+        '<span class="v-path">' + esc(PATH_LABEL[normPath(r.path)] || normPath(r.path)) + "</span>" +
       "</div>"
     ).join("");
 
@@ -935,7 +959,7 @@
       '<div class="stat-grid">' +
         '<div class="stat"><span class="stat-k">PV</span><strong>' + pv + '</strong><span class="stat-n">页面打开总次数</span></div>' +
         '<div class="stat"><span class="stat-k">UV</span><strong>' + uv + '</strong><span class="stat-n">独立访客（按浏览器计）</span></div>' +
-        '<div class="stat"><span class="stat-k">today</span><strong>' + todayPV + '</strong><span class="stat-n">今天的 PV / ' + todaySet.size + " 位访客</span></div>" +
+        '<div class="stat"><span class="stat-k">today</span><strong>' + todayPV + '</strong><span class="stat-n">今天的 PV / ' + todaySet.size + " 位访客 · 占总量 " + (pv ? Math.round((todayPV / pv) * 100) : 0) + "%</span></div>" +
         '<div class="stat"><span class="stat-k">pages</span><strong>' + Object.keys(byPath).length + '</strong><span class="stat-n">被看过的页面数</span></div>' +
       "</div>" +
 

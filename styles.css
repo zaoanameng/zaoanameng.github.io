@@ -453,6 +453,14 @@ a{color:inherit;}
   background:var(--cream);
   box-shadow:0 8px 20px -14px rgba(22,34,61,.38);
 }
+/* 封面大图还在路上的占位：一道微光扫过，到了就让位 */
+.shot.is-loading .shot-frame::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(110deg,var(--cream) 32%,rgba(255,255,255,.85) 50%,var(--cream) 68%);
+  background-size:220% 100%;
+  animation:shotPulse 1.5s linear infinite;
+}
+@keyframes shotPulse{to{background-position:-220% 0;}}
 .shot-frame img{
   width:100%;height:100%;object-fit:cover;
   transition:transform 1.1s cubic-bezier(.2,.8,.2,1);

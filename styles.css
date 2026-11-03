@@ -776,7 +776,9 @@ a{color:inherit;}
 .stat-head em{font-style:normal;font-family:var(--hand);font-size:.86rem;color:var(--ink-3);}
 
 /* 柱状图 */
-.bars{display:flex;align-items:flex-end;gap:6px;height:124px;}
+.bars{display:flex;align-items:flex-end;gap:6px;height:124px;position:relative;}
+/* 基线：压在柱子底部（柱底 = 标签高 11px + 间距 5px） */
+.bars::after{content:"";position:absolute;left:0;right:0;bottom:16px;height:1px;background:var(--line);}
 .bar-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%;}
 .bar-n{font-size:.56rem;color:var(--ink-3);font-variant-numeric:tabular-nums;height:11px;}
 .bar-i{
@@ -784,8 +786,10 @@ a{color:inherit;}
   background:linear-gradient(180deg,var(--blue-3),var(--blue-2));
   transition:background .25s;
 }
+/* 没有数据的日子也留一道极淡的占位，图表不再大面积空着 */
+.bar-i.is-zero{background:var(--blue-2);opacity:.5;min-height:4px;}
 .bar-col:hover .bar-i{background:linear-gradient(180deg,var(--red),var(--red-2));}
-.bar-d{font-size:.56rem;color:var(--ink-3);font-variant-numeric:tabular-nums;}
+.bar-d{font-size:.56rem;color:var(--ink-3);font-variant-numeric:tabular-nums;height:11px;line-height:11px;white-space:nowrap;}
 
 /* 排行条 */
 .stat-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -797,11 +801,11 @@ a{color:inherit;}
 .rank li:first-child .rk-bar i{background:var(--red);}
 .rk-n{font-size:.66rem;color:var(--ink-3);font-variant-numeric:tabular-nums;}
 
-/* 明细 */
+/* 明细：时间 / 地区固定，设备和来源贴着内容走，页面占满剩余宽度 */
 .vlist{display:grid;gap:0;}
 .vrow{
-  display:grid;grid-template-columns:82px 92px minmax(0,1fr) 84px 76px;
-  gap:8px;align-items:center;
+  display:grid;grid-template-columns:82px 108px auto 88px minmax(0,1fr);
+  gap:10px;align-items:center;
   padding:8px 0;border-bottom:1px dashed var(--line);
   font-size:.68rem;color:var(--ink-2);
 }
@@ -870,6 +874,7 @@ a{color:inherit;}
   .stat-cols{grid-template-columns:1fr;}
   .stat-card{padding:15px 14px 13px;}
   .bars{height:104px;gap:4px;}
+  .bar-d{font-size:.46rem;letter-spacing:-.02em;}
   .vrow{grid-template-columns:76px minmax(0,1fr) auto;font-size:.64rem;}
   .vrow .v-dev,.vrow .v-ref{display:none;}
   .vrow .v-path{text-align:right;}

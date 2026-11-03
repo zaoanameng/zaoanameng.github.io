@@ -528,6 +528,14 @@ a{color:inherit;}
 .btn.primary:hover{background:#152D66;border-color:#152D66;transform:translateY(-1px);}
 .btn.sm{padding:.44rem .9rem;font-size:.72rem;}
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.btn.primary:disabled:hover{background:var(--blue);border-color:var(--blue);transform:none;}
+.shake{animation:shakeX .5s cubic-bezier(.36,.07,.19,.97) both;}
+@keyframes shakeX{
+  10%,90%{transform:translateX(-1px);}
+  20%,80%{transform:translateX(2px);}
+  30%,50%,70%{transform:translateX(-4px);}
+  40%,60%{transform:translateX(4px);}
+}
 
 .mini{
   background:none;border:0;padding:0;cursor:pointer;

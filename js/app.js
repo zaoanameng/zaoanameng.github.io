@@ -456,6 +456,7 @@
       e.target.disabled = true;
       e.target.textContent = "sending…";
       try {
+        API.auth.resetLocal();   /* 清掉可能过期的旧会话，避免网关把它当成“别人的凭证” */
         pending = Object.assign({ email }, await API.auth.sendEmailCode(email));
         msg("Code sent — check your inbox (and the spam folder).");
         let n = 60;
@@ -477,8 +478,20 @@
       if (!pending || pending.email !== email) return msg("Request a code first.", true);
       if (!code) return msg("Enter the code you received.", true);
       e.target.disabled = true;
-      try {
+      const attempt = async () => {
+        API.auth.resetLocal();
         await API.auth.verifyEmailCode(email, pending, code);
+      };
+      try {
+        try {
+          await attempt();
+        } catch (err) {
+          const t = String((err && (err.message || err.code)) || "");
+          /* 少数情况下网关仍会拿着旧凭证拦一次，清干净再试一遍就能过 */
+          if (!/session is invalid|another client|invalid_grant|expired/i.test(t)) throw err;
+          await new Promise((r) => setTimeout(r, 350));
+          await attempt();
+        }
         closeModal();
         await onSignedIn();
       } catch (err) {

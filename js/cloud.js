@@ -4,11 +4,30 @@
 (function () {
   const cfg = window.WB_CONFIG;
   const SDK = window.WorkBuddyCloud;
+
+  /* 登录/验证码接口不带任何身份头：
+     浏览器里可能残留过期或别处签发的会话，云网关见到就会直接回
+     “the session is invalid, expired or issued for another client”。
+     这些接口本来就只靠 body 里的验证码 / verification_token 认证。 */
+  const AUTH_ONLY = /\/auth\/v1\/(verification|signin|signup|token|reset)/;
+  const rawFetch = (window.fetch || function () {}).bind(window);
+  function cleanFetch(url, init) {
+    try {
+      if (AUTH_ONLY.test(String(url))) {
+        const h = new Headers((init && init.headers) || {});
+        ["authorization", "x-relay-auth", "apikey"].forEach((k) => h.delete(k));
+        init = Object.assign({}, init, { headers: h });
+      }
+    } catch (_) {}
+    return rawFetch(url, init);
+  }
+
   const cloud = SDK
     ? SDK.createWorkBuddyCloud({
         endpoint: cfg.endpoint,
         oauthRelayBaseUrl: cfg.oauthRelayBaseUrl,
-        publishableKey: cfg.publishableKey
+        publishableKey: cfg.publishableKey,
+        fetch: cleanFetch
       })
     : new Proxy({}, { get() { throw new Error("云端组件没加载出来，刷新一下页面再试"); } });
   window.cloud = cloud;
@@ -53,6 +72,25 @@
     },
     async signOut() {
       try { await cloud.auth.signOut(); } catch (_) {}
+    },
+    /* 把本机残留的云端凭证全部清掉（会话 + PKCE），登录前先净一次身 */
+    resetLocal() {
+      try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf("workbuddy-cloud.") === 0) keys.push(k);
+        }
+        keys.forEach((k) => localStorage.removeItem(k));
+      } catch (_) {}
+      try {
+        const keys = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const k = sessionStorage.key(i);
+          if (k && k.indexOf("workbuddy-cloud.") === 0) keys.push(k);
+        }
+        keys.forEach((k) => sessionStorage.removeItem(k));
+      } catch (_) {}
     }
   };
 

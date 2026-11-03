@@ -1277,7 +1277,9 @@
 
   /* --- 相册 --- */
   async function viewPhoto(body) {
-    const rows = await API.items.list("photo");
+    /* 先只拉文字字段（几百字节），布局立刻出来；
+       每张封面 base64 几百 KB～1MB，进视口再单独取 */
+    const rows = await API.items.list("photo", true);
     S.data.photo = rows;
     if (!rows.length) {
       body.innerHTML = emptyState("No photos yet", "Drop the first one in." + ownerHint());
@@ -1285,11 +1287,8 @@
     }
     body.innerHTML = '<div class="gallery">' + rows.map((it) => {
       const isVideo = it.url && /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(it.url);
-      const img = it.cover && /^data:image\//.test(it.cover)
-        ? '<img src="' + esc(it.cover) + '" alt="' + esc(it.title || "") + '" loading="lazy">'
-        : "";
-      return '<figure class="shot" data-id="' + it.id + '">' +
-        '<div class="shot-frame">' + img +
+      return '<figure class="shot is-loading" data-id="' + it.id + '">' +
+        '<div class="shot-frame">' +
         (isVideo ? '<div class="shot-play"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6z"/></svg></div>' : "") +
         (S.isOwner ? '<div class="shot-tools">' + ownerTools("photo", it.id) + "</div>" : "") +
         "</div>" +
@@ -1297,12 +1296,39 @@
         "</figure>";
     }).join("") + "</div>";
 
-    $$(".shot", body).forEach((cell) => cell.addEventListener("click", (e) => {
+    const fetchCover = async (cell) => {
+      const it = rows.find((r) => String(r.id) === cell.dataset.id);
+      if (!it) return;
+      try {
+        if (!it.cover) it.cover = await API.items.cover(it.id) || null;
+        const frame = cell.querySelector(".shot-frame");
+        if (it.cover && /^data:image\//.test(it.cover) && frame) {
+          frame.insertAdjacentHTML("afterbegin",
+            '<img src="' + esc(it.cover) + '" alt="' + esc(it.title || "") + '" loading="lazy">');
+        }
+      } catch (_) {}
+      cell.classList.remove("is-loading");
+    };
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver((ents) => {
+        ents.forEach((en) => {
+          if (!en.isIntersecting) return;
+          io.unobserve(en.target);
+          fetchCover(en.target);
+        });
+      }, { rootMargin: "240px" });
+      $$(".shot", body).forEach((c) => io.observe(c));
+    } else {
+      $$(".shot", body).forEach(fetchCover);
+    }
+
+    $$(".shot", body).forEach((cell) => cell.addEventListener("click", async (e) => {
       if (e.target.closest("[data-edit],[data-del]")) return;
       const it = rows.find((r) => String(r.id) === cell.dataset.id);
       if (!it) return;
+      if (it.url && /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(it.url)) { openLightbox(safeUrl(it.url), true); return; }
+      try { if (!it.cover) it.cover = await API.items.cover(it.id); } catch (_) {}
       if (it.cover && /^data:image\//.test(it.cover)) openLightbox(it.cover, false, it.title);
-      else if (it.url && /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(it.url)) openLightbox(safeUrl(it.url), true);
       else if (safeUrl(it.url)) window.open(safeUrl(it.url), "_blank", "noopener");
     }));
     wireOwnerTools(body, "photo", rows);
@@ -1463,7 +1489,7 @@
   }
 
   function wireOwnerTools(body, kind, rows, isPost) {
-    $$("[data-edit]", body).forEach((b) => (b.onclick = (e) => {
+    $$("[data-edit]", body).forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
       const id = Number(b.dataset.edit);
       if (isPost) {
@@ -1471,7 +1497,11 @@
         if (p) openPostForm(p);
       } else {
         const it = rows.find((r) => r.id === id);
-        if (it) openPhotoForm(it);
+        if (it) {
+          /* 轻量列表不带封面 base64，编辑回填前先补上 */
+          try { if (!it.cover) it.cover = await API.items.cover(it.id); } catch (_) {}
+          openPhotoForm(it);
+        }
       }
     }));
     $$("[data-del]", body).forEach((b) => (b.onclick = async (e) => {

@@ -140,12 +140,24 @@
 
   /* ---------------- 收藏卡片 ---------------- */
   const items = {
-    async list(kind) {
+    /* light = 只拉文字字段。
+       照片的 cover 是整张 base64（一张几百 KB～1MB），全量 select(*)
+       6 张就要 3.8MB / 3 秒多；轻量列表只有几百字节，布局先出来，
+       封面图再由页面逐张懒加载。 */
+    async list(kind, light) {
+      const cols = light ? "id,kind,title,url,created_at" : "*";
       const { data, error } = await cloud.database
-        .from("items").select("*").eq("kind", kind)
+        .from("items").select(cols).eq("kind", kind)
         .order("created_at", { ascending: false }).limit(400);
       if (error) throw error;
       return data || [];
+    },
+    /* 单取一张照片的封面 base64 */
+    async cover(id) {
+      const { data, error } = await cloud.database
+        .from("items").select("id,cover").eq("id", id).limit(1);
+      if (error) throw error;
+      return (data && data[0] && data[0].cover) || null;
     },
     /* 只要数量：只取 id，不下载图片 base64，快几十倍 */
     async count(kind) {

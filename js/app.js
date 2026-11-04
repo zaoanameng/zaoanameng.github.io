@@ -329,6 +329,10 @@
     if (!region) region = regionOf(zone);
 
     const info = uaInfo();
+    /* 机器伪装过滤：手机 UA 但视口是桌面宽度（>700px）→ 判为伪造，不记录。
+       真手机的视口宽度最多 500 上下；爬虫爱伪装微信 UA 却开着 1600×1200 的桌面视口。 */
+    if (info.device === "mobile" && window.innerWidth > 700) return;
+
     const payload = {
       vid: visitorId(),
       path: pagePath().slice(0, 120),
@@ -891,7 +895,31 @@
       return;
     }
 
-    /* ---- 汇总 ---- */
+    /* ---- 汇总（机器人记录不计入统计，但灰显保留在明细里） ---- */
+    /* 判据 1（硬）：手机 UA + 桌面宽视口（如东莞爬虫 1600×1200）→ 伪造。
+       判据 2（指纹聚类）：地区+屏幕+设备+浏览器+系统 完全相同的组合，
+                          出现 ≥5 次且每次访客 ID 都不同 → 无痕环境反复抓取。
+                          真人重复访问会复用同一个 ID，所以不会命中。 */
+    const likeRegion = (r) => prettyRegion(r.region);
+    const fpKey = (r) => [likeRegion(r), r.screen || "", r.device || "", r.browser || "", r.os || ""].join("|");
+    const botSet = new Set();
+    const groups = {};
+    rows.forEach((r) => { const k = fpKey(r); (groups[k] = groups[k] || []).push(r); });
+    Object.keys(groups).forEach((k) => {
+      const g = groups[k];
+      if (g.length >= 5 && new Set(g.map((r) => r.vid)).size === g.length) {
+        g.forEach((r) => botSet.add(r));
+      }
+    });
+    const isBotRow = (r) => {
+      if (botSet.has(r)) return true;
+      const w = parseInt(String(r.screen || "").split("×")[0], 10) || 0;
+      return r.device === "mobile" && w > 700;
+    };
+    const realRows = [];
+    const botRows = [];
+    rows.forEach((r) => ((isBotRow(r) ? botRows : realRows).push(r)));
+
     const uvSet = new Set();
     const today = dayKey(new Date());
     const todaySet = new Set();
@@ -901,7 +929,7 @@
     const byPath = {};
     const byRegion = {};
 
-    rows.forEach((r) => {
+    realRows.forEach((r) => {
       uvSet.add(r.vid);
       const k = dayKey(new Date(r.created_at));
       byDay[k] = (byDay[k] || 0) + 1;
@@ -913,7 +941,7 @@
       if (k === today) { todayPV += 1; todaySet.add(r.vid); }
     });
 
-    const pv = rows.length;
+    const pv = realRows.length;
     const uv = uvSet.size;
 
     /* 近 14 天：标签带月份（跨月不再像日期倒着走） */
@@ -943,17 +971,21 @@
         '<span class="rk-n">' + n + "</span></li>"
       ).join("");
 
-    const detail = rows.slice(0, 60).map((r) =>
-      '<div class="vrow">' +
+    const vrowHTML = (r, bot) =>
+      '<div class="vrow' + (bot ? " is-bot" : "") + '"' + (bot ? ' title="疑似机器人访问，不计入统计"' : "") + ">" +
         '<span class="v-time">' + esc(shortStamp(r.created_at)) + "</span>" +
         '<span class="v-where">' + esc(prettyRegion(r.region)) + "</span>" +
         '<span class="v-dev">' + esc(DEV_LABEL[r.device] || r.device || "—") +
           (r.browser ? " · " + esc(r.browser) : "") +
           (r.os ? " · " + esc(r.os) : "") + "</span>" +
-        '<span class="v-ref">' + esc(REF_LABEL[r.ref_type] || "直接访问") + "</span>" +
+        '<span class="v-ref">' + (bot ? "机器人" : esc(REF_LABEL[r.ref_type] || "直接访问")) + "</span>" +
         '<span class="v-path">' + esc(PATH_LABEL[normPath(r.path)] || normPath(r.path)) + "</span>" +
-      "</div>"
-    ).join("");
+      "</div>";
+
+    const detail = realRows.slice(0, 60).map((r) => vrowHTML(r, false)).join("") +
+      (botRows.length
+        ? botRows.slice(0, 20).map((r) => vrowHTML(r, true)).join("")
+        : "");
 
     body.innerHTML =
       '<div class="stat-grid">' +
@@ -985,6 +1017,9 @@
         '<div class="stat-head"><h3>访客明细</h3><em>最近 60 条</em></div>' +
         '<div class="vlist"><div class="vrow vhead"><span class="v-time">时间</span><span class="v-where">地区</span><span class="v-dev">设备 / 浏览器</span><span class="v-ref">来源</span><span class="v-path">页面</span></div>' +
           detail + "</div>" +
+        (botRows.length
+          ? '<div class="v-note">另有 ' + botRows.length + ' 条疑似机器人记录已灰显，不计入上面的统计</div>'
+          : "") +
       "</div>";
 
     const btn = $("#statRefresh");

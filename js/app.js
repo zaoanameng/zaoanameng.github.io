@@ -1079,24 +1079,57 @@
     }
     const sorted = rows.slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
     body.innerHTML = '<div class="jgrid">' + sorted.map(jCard).join("") + "</div>";
-    $$("[data-open]", body).forEach((el) => (el.onclick = () => {
-      const p = rows.find((r) => String(r.id) === String(el.dataset.open));
-      if (p) openReader(p);
+
+    $$("[data-open]", body).forEach((el) => {
+      const open = () => {
+        const p = rows.find((r) => String(r.id) === String(el.dataset.open));
+        if (p) openReader(p);
+      };
+      el.onclick = open;
+      el.onkeydown = (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      };
+    });
+
+    /* 小锁：切换单篇的公开 / 私密，不写库就不同步 UI */
+    $$("[data-lock]", body).forEach((b) => (b.onclick = async (e) => {
+      e.stopPropagation();
+      const p = rows.find((r) => String(r.id) === String(b.dataset.lock));
+      if (!p) return;
+      const next = !p.is_public;
+      b.disabled = true;
+      try {
+        await API.posts.update(p.id, { is_public: next });
+        p.is_public = next;
+        toast(next ? "已公开，访客能看到了" : "已设为私密，只有你能看到");
+        renderModule("diary");
+      } catch (err) {
+        b.disabled = false;
+        toast(API.errText(err), "err");
+      }
     }));
   }
 
   function jCard(p) {
     const txt = String(p.content || "").replace(/\s+/g, " ").trim();
-    return '<button class="jcard" type="button" data-open="' + p.id + '">' +
+    /* 站主在列表上就能单独把某一篇设私密 / 公开 */
+    const lockBtn = S.isOwner
+      ? '<button class="jc-lock' + (p.is_public ? "" : " is-locked") + '" type="button" data-lock="' + p.id + '"' +
+        ' aria-label="' + (p.is_public ? "设为私密" : "设为公开") + '"' +
+        ' title="' + (p.is_public ? "设为私密（只有你能看到）" : "设为公开（访客也能看到）") + '">' +
+        I.lock + "</button>"
+      : "";
+    return '<div class="jcard" role="button" tabindex="0" data-open="' + p.id + '">' +
       '<span class="jc-top"><em>Faint Line</em><i></i>' +
         (p.pinned ? '<b class="jc-tag">pinned</b>' : "") +
         (!p.is_public ? '<b class="jc-tag is-lock">' + I.lock + "private</b>" : "") +
+        lockBtn +
       "</span>" +
       (p.title ? '<strong class="jc-title">' + esc(p.title) + "</strong>" : "") +
       '<span class="jc-text">' + esc(txt || "…") + "</span>" +
       '<span class="jc-cat" aria-hidden="true"><img src="assets/dog-poodle.jpg" alt=""></span>' +
       '<span class="jc-time">' + esc(fmtFull(p.created_at)) + "</span>" +
-      "</button>";
+      "</div>";
   }
 
   /* ---------- 单篇阅读页 ---------- */
@@ -1713,7 +1746,7 @@
         { k: "content", label: "正文", type: "textarea", rows: 9, placeholder: "今天……", required: true },
         { k: "mood", label: "心情", optional: true, placeholder: "🌤 还不错" },
         { k: "source_url", label: "原文链接", optional: true, placeholder: "https://..." },
-        { k: "public", label: "公开这一篇（不勾选只有自己能看到）", type: "checkbox" }
+        { k: "public", label: "公开这一篇（不勾选 = 只有自己能看）", type: "checkbox" }
       ],
       values: post ? {
         title: post.title, content: post.content, mood: post.mood,

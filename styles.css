@@ -329,7 +329,7 @@ a{color:inherit;}
 .chip.is-text:hover > span:nth-child(2){text-decoration:none;}
 
 .doodle-flower{
-  position:absolute;right:-11px;top:-13px;width:38px;height:38px;opacity:.85;
+  position:absolute;right:-11px;top:-14px;height:36px;opacity:.75;
   pointer-events:none;
 }
 .page-hint{
@@ -501,24 +501,187 @@ a{color:inherit;}
 .stat span{display:block;margin-top:7px;font-size:.64rem;letter-spacing:.18em;color:var(--ink-3);}
 .about-sign{margin:26px 0 0;font-size:.78rem;color:var(--ink-3);}
 
-/* ---------- 留言区 ---------- */
+/* ---------- 留言区（手账涂鸦版） ---------- */
+.guest{position:relative;}
+.guest-top{
+  position:relative;display:grid;grid-template-columns:minmax(0,1fr);
+  margin-top:6px;
+}
+.guest-top .gform{max-width:620px;width:100%;margin:0;}
+/* 表单右侧空处的两笔小画，和纸角那颗一起散着 */
+/* 贴着表单右边缘外侧落两笔，不飘在远处 */
+.gside{position:absolute;left:calc(620px + 46px);top:-6px;width:132px;height:236px;pointer-events:none;}
+.gside .gs-a{position:absolute;left:6px;top:26px;height:22px;opacity:.34;transform:rotate(-12deg);}
+.gside .gs-b{position:absolute;left:22px;bottom:56px;height:32px;opacity:.46;transform:rotate(11deg);}
+/* 窄屏表单会顶到右边，这两笔就收起来 */
+@media (max-width:1120px){.gside{display:none;}}
 .gform{
-  display:grid;gap:18px;padding:24px;max-width:620px;margin-top:22px;
-  border:1px solid var(--line);border-radius:12px;background:var(--cream);
+  position:relative;display:grid;gap:15px;
+  padding:30px 26px 20px;max-width:none;margin:0;
+  border:0;border-radius:16px;background:transparent;
+  transform:rotate(-.28deg);
+}
+/* 框交给伪元素画，再揉一下，像随手框出来的 */
+.gform::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  border:1.7px solid var(--ink);
+  border-radius:19px 10px 17px 12px / 12px 19px 10px 16px;
+  filter:url(#sketchRough);opacity:.55;
+}
+.gform .tape{
+  position:absolute;top:-12px;left:clamp(24px,16%,86px);width:94px;height:25px;
+  transform:rotate(-2.2deg);pointer-events:none;
+  background:rgba(185,199,230,.6);
+  border-left:1px solid rgba(255,255,255,.6);
+  box-shadow:0 1px 3px rgba(22,34,61,.07);
+  clip-path:polygon(0 7%,100% 0,99% 93%,2% 100%);
+}
+.gform .gd-bf{
+  position:absolute;top:-42px;right:-4px;height:40px;opacity:.7;
+  transform:rotate(8deg);pointer-events:none;
 }
 .gform .row{display:flex;gap:18px;flex-wrap:wrap;}
 .gform .row > *{flex:1;min-width:170px;}
-.quotes{margin-top:26px;border-top:1px solid var(--line-2);}
-.quote{padding:24px 0;border-bottom:1px solid var(--line);display:grid;gap:10px;}
-.quote-text{margin:0;font-size:.98rem;line-height:1.95;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;}
-.quote-text::before{content:"\201C";}
-.quote-text::after{content:"\201D";}
-.quote-by{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  font-size:.66rem;letter-spacing:.1em;color:var(--ink-3);
+.gform .field{gap:3px;}
+.gform .field label{
+  font-family:var(--hand);font-size:1.06rem;font-weight:500;
+  letter-spacing:.05em;color:var(--ink-3);
 }
+.gform .field .opt{margin-left:5px;}
+/* 输入区去掉方框，只留一条手画的横线 */
+.gform .input,.gform .textarea{
+  border:0;border-bottom:1.4px dashed rgba(22,34,61,.26);border-radius:0;
+  background-color:transparent;padding:3px 2px 8px;
+  font-family:var(--hand-cn);font-size:1rem;color:var(--ink);
+  transition:border-color .25s;
+}
+.gform .input:focus,.gform .textarea:focus{
+  border-bottom:1.4px solid var(--ink);outline:none;box-shadow:none;
+}
+.gform .textarea{
+  min-height:92px;line-height:30px;padding:0 2px 8px;
+  background-image:repeating-linear-gradient(to bottom,rgba(22,34,61,.12) 0 1px,transparent 1px 30px);
+  background-position:0 29px;background-repeat:repeat-y;
+}
+.gform-foot{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;flex-wrap:wrap;padding-top:4px;
+}
+.gform .hint{font-family:var(--hand);font-size:.94rem;letter-spacing:.02em;}
+.gsign{
+  position:relative;padding:.5rem 1.2rem;border:0;cursor:pointer;
+  font-family:var(--hand);font-size:1.08rem;letter-spacing:.06em;color:#fff;
+  background:var(--blue);border-radius:17px 9px 15px 11px / 11px 17px 9px 14px;
+  transform:rotate(-1.2deg);
+  transition:background .25s,transform .25s,opacity .25s;
+}
+.gsign::before{
+  content:"";position:absolute;inset:-3px;pointer-events:none;
+  border:1.5px solid var(--ink);border-radius:inherit;
+  filter:url(#sketchRough);opacity:.3;
+}
+.gsign:hover{background:var(--red);transform:rotate(0deg) translateY(-1px);}
+.gsign:disabled{opacity:.55;cursor:default;transform:rotate(-1.2deg);}
+
+.dood{display:block;width:auto;height:100%;object-fit:contain;pointer-events:none;}
+
+/* 散落的小点缀：骨头和闪光，随手撒在版面空处 */
+.guest-scatter{position:relative;height:88px;pointer-events:none;}
+.guest-scatter .gs-bone1{position:absolute;left:6%;top:8px;height:24px;opacity:.4;transform:rotate(-14deg);}
+.guest-scatter .gs-spark1{position:absolute;left:38%;top:24px;height:30px;opacity:.5;transform:rotate(10deg);}
+.guest-scatter .gs-bone2{position:absolute;right:10%;top:26px;height:20px;opacity:.34;transform:rotate(9deg);}
+/* 留言墙：白纸上的手绘线稿，一条留言 = 一个手画的小框 */
+.wall-cap{
+  position:relative;margin:38px 0 0;text-align:center;
+  font-family:var(--hand);font-size:1.44rem;letter-spacing:.09em;
+  color:var(--ink);opacity:.82;
+}
+.wall-cap .cap-mark{font-size:1.5em;line-height:1;vertical-align:-.18em;opacity:.5;margin:0 .1em;}
+.cap-fly{
+  display:inline-block;height:30px;margin-left:8px;
+  opacity:.55;vertical-align:middle;
+  transform:rotate(-10deg) translateY(-6px);pointer-events:none;
+}
+
+.notes{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(198px,1fr));
+  align-items:stretch;gap:46px 26px;
+  margin-top:28px;padding:10px 6px 4px;
+}
+.note{
+  position:relative;display:flex;flex-direction:column;gap:10px;
+  min-height:148px;max-width:340px;
+  padding:20px 18px 14px;
+  transform:rotate(var(--tilt,0deg));
+  transition:transform .25s ease;
+  animation:noteOn .46s cubic-bezier(.2,.7,.3,1) both;
+}
+/* 手画边框：交给伪元素画，再用手抖滤镜揉一下，框抖字不抖 */
+.note::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  border:1.8px solid var(--ink);
+  border-radius:18px 9px 16px 11px / 11px 18px 9px 15px;
+  filter:url(#sketchRough);
+  opacity:.85;
+}
+.note:hover{transform:rotate(0deg) translateY(-2px);}
+.note:hover::before{opacity:1;}
+/* 偶尔贴一段胶带，像贴在墙上的便签 */
+.note.is-taped::after{
+  content:"";position:absolute;top:-10px;left:20px;width:54px;height:18px;
+  transform:rotate(-2.6deg);pointer-events:none;
+  background:rgba(185,199,230,.55);
+  clip-path:polygon(0 9%,100% 0,99% 91%,1% 100%);
+  box-shadow:0 1px 2px rgba(22,34,61,.06);
+}
+.note.is-taped:nth-child(3n)::after{background:rgba(210,66,45,.16);transform:rotate(2.2deg);}
+
+/* 便利贴边角的小画，落在纸边外的空隙里 */
+.note-doodle{
+  position:absolute;height:44px;opacity:.82;pointer-events:none;
+}
+.note-doodle img{height:100%;width:auto;max-width:104px;display:block;}
+/* 骨头线条粗，缩得比闪光小一点、淡一点，别像墨块 */
+.note-doodle.is-bone{height:26px;opacity:.6;}
+.note-doodle.is-bone img{max-width:76px;}
+.note:hover .note-doodle.is-bone{opacity:.8;}
+.note-doodle.br{right:2px;bottom:-30px;transform:rotate(-6deg);}
+.note-doodle.bl{left:2px;bottom:-29px;transform:rotate(5deg);}
+.note:hover .note-doodle{opacity:1;}
+
+.note-text{
+  margin:0;flex:1;
+  font-family:var(--hand-cn);font-size:.93rem;line-height:2;
+  color:var(--ink);white-space:pre-wrap;word-break:break-word;
+}
+.note-by{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  font-family:var(--hand-cn);font-size:.7rem;color:var(--ink-3);
+}
+.note-name{font-size:.8rem;color:var(--ink-2);}
+.note-name::before{content:"— ";opacity:.55;}
+.note-time{font-size:.6rem;letter-spacing:.05em;font-variant-numeric:tabular-nums;}
+
+.note-del{
+  position:absolute;top:4px;right:6px;width:20px;height:20px;
+  display:flex;align-items:center;justify-content:center;
+  border:0;border-radius:50%;background:transparent;color:var(--ink-3);
+  font-size:15px;line-height:1;cursor:pointer;opacity:0;
+  transition:opacity .2s,color .2s;
+}
+.note:hover .note-del,.note-del:focus-visible{opacity:1;}
+.note-del:hover{color:var(--red);}
+
+@keyframes noteOn{
+  from{opacity:0;transform:rotate(var(--tilt,0deg)) translateY(14px) scale(.97);}
+  to{opacity:1;transform:rotate(var(--tilt,0deg)) translateY(0) scale(1);}
+}
+@media (prefers-reduced-motion:reduce){
+  .note{animation:none;}
+  .note:hover{transform:rotate(var(--tilt,0deg));}
+}
+
 .rowtools{display:flex;align-items:center;gap:12px;}
-.quote .rowtools{margin-left:auto;}
 
 /* ==========================================================
    按钮 / 表单 / 弹窗
@@ -835,7 +998,7 @@ a{color:inherit;}
 /* 明细：时间 / 地区固定，设备和来源贴着内容走，页面占满剩余宽度 */
 .vlist{display:grid;gap:0;}
 .vrow{
-  display:grid;grid-template-columns:82px 108px auto 88px minmax(0,1fr);
+  display:grid;grid-template-columns:112px 108px auto 88px minmax(0,1fr);
   gap:10px;align-items:center;
   padding:8px 0;border-bottom:1px dashed var(--line);
   font-size:.68rem;color:var(--ink-2);
@@ -844,6 +1007,10 @@ a{color:inherit;}
 .vrow > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .vhead{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);}
 .v-time{font-variant-numeric:tabular-nums;color:var(--ink-3);}
+.v-n{
+  margin-left:5px;font-style:normal;font-size:.55rem;letter-spacing:.02em;
+  color:var(--ink-3);padding:1px 4px;border-radius:6px;background:rgba(22,34,61,.055);
+}
 .v-ref{color:var(--ink-3);}
 /* 疑似机器人的历史记录：灰显保留，不计入统计 */
 .vrow.is-bot{opacity:.42;}
@@ -875,7 +1042,19 @@ a{color:inherit;}
   .mod-head{padding:2.6vh 0 2.6vh;}
   .about{grid-template-columns:1fr;gap:22px;}
   .about-face{max-width:170px;}
-  .gform{padding:20px 16px;}
+  .gform{padding:24px 16px 16px;}
+  .gd-bf{height:32px;top:-34px;}
+  .cap-fly{display:none;}
+  .gside{display:none;}
+  .guest-scatter{height:70px;}
+  .guest-scatter .gs-bone1{height:20px;left:52%;top:10px;}
+  .guest-scatter .gs-spark1{height:26px;left:auto;right:16%;top:34px;}
+  .guest-scatter .gs-bone2{display:none;}
+  .notes{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:38px 14px;margin-top:22px;padding:8px 2px 2px;}
+  .wall-cap{font-size:1.2rem;margin-top:32px;}
+  .note{min-height:132px;max-width:none;padding:18px 16px 13px;}
+  .note-text{font-size:.86rem;line-height:1.9;}
+  .note-doodle{height:36px;}
   .modal{padding:24px 18px 18px;border-radius:12px;}
   .watermark{font-size:clamp(1.7rem,9vw,2.6rem);}
 }
@@ -910,7 +1089,7 @@ a{color:inherit;}
   .stat-card{padding:15px 14px 13px;}
   .bars{height:104px;gap:4px;}
   .bar-d{font-size:.46rem;letter-spacing:-.02em;}
-  .vrow{grid-template-columns:76px minmax(0,1fr) auto;font-size:.64rem;}
+  .vrow{grid-template-columns:96px minmax(0,1fr) auto;font-size:.64rem;}
   .vrow .v-dev,.vrow .v-ref{display:none;}
   .vrow .v-path{text-align:right;}
 }

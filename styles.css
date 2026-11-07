@@ -835,13 +835,24 @@ a{color:inherit;}
 /* 明细：时间 / 地区固定，设备和来源贴着内容走，页面占满剩余宽度 */
 .vlist{display:grid;gap:0;}
 .vrow{
-  display:grid;grid-template-columns:82px 108px auto 88px minmax(0,1fr);
+  display:grid;grid-template-columns:82px 140px auto 88px minmax(0,1fr);
   gap:10px;align-items:center;
   padding:8px 0;border-bottom:1px dashed var(--line);
   font-size:.68rem;color:var(--ink-2);
 }
 .vrow:last-child{border-bottom:0;}
-.vrow > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vrow > span{min-width:0;overflow:hidden;}
+.vrow .v-main{
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:inherit;
+}
+/* 第二行小字：时区 / 语言 · 视口，用来说明归属地可不可信 */
+.vrow .v-sub{
+  display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-style:normal;font-size:.55rem;letter-spacing:.02em;
+  color:var(--ink-3);opacity:.85;
+}
+.vrow .v-sub.is-warn{color:var(--red);opacity:1;}
+.vrow.is-bot .v-sub{opacity:.7;}
 .vhead{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);}
 .v-time{font-variant-numeric:tabular-nums;color:var(--ink-3);}
 .v-ref{color:var(--ink-3);}

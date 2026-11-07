@@ -61,6 +61,7 @@
     '<span class="ink-frame b" aria-hidden="true"></span>' +
     '<div class="spine-col" aria-hidden="true"><svg class="spine" viewBox="0 0 24 800" preserveAspectRatio="none"><path class="sp-1" d="M12.20 6C12.22 39.3 10.40 72.6 11.19 104C9.70 137.3 12.38 170.6 12.77 202C13.03 235.3 11.31 268.6 12.60 300C13.48 333.3 11.34 366.6 12.14 398C11.34 431.3 9.98 464.6 11.35 496C12.84 529.3 13.80 562.6 13.08 594C14.21 627.3 13.47 660.6 13.12 692C11.72 726.7 11.73 761.4 12.24 794"/><path class="sp-2" d="M11.00 6C10.22 39.3 11.95 72.6 11.66 104C11.66 137.3 11.39 170.6 10.62 202C9.58 235.3 11.44 268.6 10.43 300C9.71 333.3 12.40 366.6 11.71 398C11.73 431.3 10.89 464.6 10.15 496C9.45 529.3 10.56 562.6 10.95 594C10.04 627.3 11.74 660.6 11.13 692C11.20 726.7 10.59 761.4 11.24 794"/></svg><span class="rings"><svg viewBox="0 0 84 40"><path d="M12 23.5C6.5 19 9.5 9.5 18.5 9.5C27.5 9.5 33.5 17 41.5 18C49.5 19 56 10 65 9.8C74 9.6 77 19 71.5 23.6C66 28.2 55.5 21 45.5 20.5C35.5 20 20 27 12 23.5Z"/></svg><svg viewBox="0 0 84 40"><path d="M13 24.6C7 20.4 9 10.2 18.2 10C27.4 9.8 32.6 16.4 41 17.4C49.4 18.4 56.6 11.4 65 11C73.4 10.6 76.6 19.8 70.8 24C65 28.2 55 21.6 45 21.2C35 20.8 19.4 28.8 13 24.6Z"/></svg><svg viewBox="0 0 84 40"><path d="M11.5 22.8C6.2 18.2 10 9 19 9.2C28 9.4 34.2 16.8 42 17.8C49.8 18.8 55.4 9.8 64.4 10.4C73.4 11 76.4 20.2 70.6 24.2C64.8 28.2 54.8 20.6 44.8 20.4C34.8 20.2 19.6 28.2 11.5 22.8Z"/></svg></span></div>';
 
+  const DOODLE_FLOWER = '<svg class="doodle-flower" viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="#D9553F" stroke-width="1.6" stroke-linecap="round"><circle cx="20" cy="12" r="5"/><circle cx="27.6" cy="17.5" r="5"/><circle cx="24.7" cy="26.4" r="5"/><circle cx="15.3" cy="26.4" r="5"/><circle cx="12.4" cy="17.5" r="5"/><circle cx="20" cy="20.4" r="3"/></g></svg>';
 
   /* ---------------- 3. 小工具 ---------------- */
   const $ = (s, r) => (r || document).querySelector(s);
@@ -315,34 +316,10 @@
      若只靠它判断，站内点来点去永远算「直接访问」。
      所以第一次按 referrer 判，之后的路由跳转一律记「站内跳转」。 */
   let trackedAny = false;
-
-  /* 同一次会话（同一个标签页）里同一个页面只记一条。
-     之前 go() 和 hashchange 会各触发一次 trackView，加上来回切页，
-     一个设备一次访问就能写出七八条一模一样的记录。 */
-  const VIEWED_KEY = "am.viewed-paths";
-  function alreadyLogged(p) {
-    try {
-      const arr = JSON.parse(sessionStorage.getItem(VIEWED_KEY) || "[]");
-      return Array.isArray(arr) && arr.indexOf(p) !== -1;
-    } catch (_) { return false; }
-  }
-  function markLogged(p) {
-    try {
-      const arr = JSON.parse(sessionStorage.getItem(VIEWED_KEY) || "[]");
-      if (!Array.isArray(arr)) return;
-      if (arr.indexOf(p) === -1) arr.push(p);
-      sessionStorage.setItem(VIEWED_KEY, JSON.stringify(arr.slice(-80)));
-    } catch (_) {}
-  }
-
   async function trackView() {
     if (S.isOwner) return;
     const cfg = window.WB_CONFIG || {};
     if (!cfg.endpoint || !cfg.publishableKey) return;
-
-    const viewPath = pagePath().slice(0, 120);
-    if (alreadyLogged(viewPath)) return;
-    markLogged(viewPath);
 
     let zone = "";
     try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) {}
@@ -358,7 +335,7 @@
 
     const payload = {
       vid: visitorId(),
-      path: viewPath,
+      path: pagePath().slice(0, 120),
       ref: (document.referrer || "").slice(0, 400) || null,
       ref_type: trackedAny ? "internal" : refKind(document.referrer),
       region: region,
@@ -884,6 +861,16 @@
     return t.split(/\s*·\s*|\s+/).filter(Boolean).join(" · ");
   }
 
+  /* 时区与 IP 归属地互相印证：一边说在中国、另一边不是 → 多半走了代理 / VPN，
+     或者 IP 库把 IDC 段误标成了某个城市 */
+  function tzMismatch(region, tz) {
+    const z = String(tz || "");
+    if (!z) return false;
+    const cnZone = /^(Asia\/(Shanghai|Chongqing|Harbin|Urumqi|Kashgar|Beijing)|PRC)$/.test(z);
+    const cnRegion = /^(中国|china|cn|中华人民共和国)/i.test(String(region || "").trim());
+    return cnRegion !== cnZone;
+  }
+
   function dayKey(d) {
     return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
@@ -943,28 +930,6 @@
     const botRows = [];
     rows.forEach((r) => ((isBotRow(r) ? botRows : realRows).push(r)));
 
-    /* 同一访客、同一页面、30 分钟内连着产生的记录合并成一条，
-       并在时间后面标 ×n（历史上重复写入的那些就靠这一步收干净）。 */
-    const COLLAPSE_MS = 30 * 60 * 1000;
-    const tsOf = (r) => new Date(r.created_at).getTime() || 0;
-    function collapseVisits(list) {
-      const sorted = list.slice().sort((a, b) => tsOf(b) - tsOf(a));
-      const out = [];
-      sorted.forEach((r) => {
-        const last = out[out.length - 1];
-        if (last && last.vid === r.vid && normPath(last.path) === normPath(r.path) &&
-            tsOf(last) - tsOf(r) <= COLLAPSE_MS) {
-          last.n += 1;
-          last.ts = tsOf(r);
-          return;
-        }
-        out.push(Object.assign({}, r, { n: 1 }));
-      });
-      return out;
-    }
-    const realVisits = collapseVisits(realRows);
-    const botVisits = collapseVisits(botRows);
-
     const uvSet = new Set();
     const today = dayKey(new Date());
     const todaySet = new Set();
@@ -974,7 +939,7 @@
     const byPath = {};
     const byRegion = {};
 
-    realVisits.forEach((r) => {
+    realRows.forEach((r) => {
       uvSet.add(r.vid);
       const k = dayKey(new Date(r.created_at));
       byDay[k] = (byDay[k] || 0) + 1;
@@ -986,7 +951,7 @@
       if (k === today) { todayPV += 1; todaySet.add(r.vid); }
     });
 
-    const pv = realVisits.length;
+    const pv = realRows.length;
     const uv = uvSet.size;
 
     /* 近 14 天：标签带月份（跨月不再像日期倒着走） */
@@ -1016,24 +981,37 @@
         '<span class="rk-n">' + n + "</span></li>"
       ).join("");
 
-    const vrowHTML = (r, bot) =>
-      '<div class="vrow' + (bot ? " is-bot" : "") + '"' + (bot ? ' title="疑似机器人访问，不计入统计"' : "") + ">" +
-        '<span class="v-time">' + esc(shortStamp(r.created_at)) +
-          (r.n > 1 ? '<em class="v-n">×' + r.n + "</em>" : "") + "</span>" +
-        '<span class="v-where">' + esc(prettyRegion(r.region)) + "</span>" +
-        '<span class="v-dev">' + esc(DEV_LABEL[r.device] || r.device || "—") +
-          (r.browser ? " · " + esc(r.browser) : "") +
-          (r.os ? " · " + esc(r.os) : "") + "</span>" +
-        '<span class="v-ref">' + (bot ? "机器人" : esc(REF_LABEL[r.ref_type] || "直接访问")) + "</span>" +
-        '<span class="v-path">' + esc(PATH_LABEL[normPath(r.path)] || normPath(r.path)) + "</span>" +
-      "</div>";
+    /* 第二行小字：给地区配时区、给设备配语言和视口，用来判断归属地可不可信 */
+    const subLine = (txt, warn, tip) => txt
+      ? '<em class="v-sub' + (warn ? " is-warn" : "") + '" title="' + esc(tip) + '">' + esc(txt) + "</em>"
+      : "";
 
-    const detail = realVisits.map((r) => vrowHTML(r, false)).join("") +
-      botVisits.map((r) => vrowHTML(r, true)).join("");
+    const vrowHTML = (r, bot) => {
+      const mis = tzMismatch(r.region, r.tz);
+      const devSub = [r.lang, r.screen].filter(Boolean).join(" · ");
+      return '<div class="vrow' + (bot ? " is-bot" : "") + '"' + (bot ? ' title="疑似机器人访问，不计入统计"' : "") + ">" +
+        '<span class="v-time"><b class="v-main">' + esc(shortStamp(r.created_at)) + "</b></span>" +
+        '<span class="v-where"><b class="v-main">' + esc(prettyRegion(r.region)) + "</b>" +
+          (r.tz ? subLine(r.tz, mis, mis
+            ? "时区与 IP 归属地不一致：可能是代理 / VPN，或 IP 库把机房网段标成了这个城市"
+            : "访客浏览器报告的时区") : "") + "</span>" +
+        '<span class="v-dev"><b class="v-main">' + esc(DEV_LABEL[r.device] || r.device || "—") +
+          (r.browser ? " · " + esc(r.browser) : "") +
+          (r.os ? " · " + esc(r.os) : "") + "</b>" +
+          (devSub ? subLine(devSub, false, "浏览器语言 · 视口尺寸") : "") + "</span>" +
+        '<span class="v-ref"><b class="v-main">' + (bot ? "机器人" : esc(REF_LABEL[r.ref_type] || "直接访问")) + "</b></span>" +
+        '<span class="v-path"><b class="v-main">' + esc(PATH_LABEL[normPath(r.path)] || normPath(r.path)) + "</b></span>" +
+      "</div>";
+    };
+
+    const detail = realRows.slice(0, 60).map((r) => vrowHTML(r, false)).join("") +
+      (botRows.length
+        ? botRows.slice(0, 20).map((r) => vrowHTML(r, true)).join("")
+        : "");
 
     body.innerHTML =
       '<div class="stat-grid">' +
-        '<div class="stat"><span class="stat-k">PV</span><strong>' + pv + '</strong><span class="stat-n">打开次数（重复已合并）</span></div>' +
+        '<div class="stat"><span class="stat-k">PV</span><strong>' + pv + '</strong><span class="stat-n">页面打开总次数</span></div>' +
         '<div class="stat"><span class="stat-k">UV</span><strong>' + uv + '</strong><span class="stat-n">独立访客（按浏览器计）</span></div>' +
         '<div class="stat"><span class="stat-k">today</span><strong>' + todayPV + '</strong><span class="stat-n">今天的 PV / ' + todaySet.size + " 位访客 · 占总量 " + (pv ? Math.round((todayPV / pv) * 100) : 0) + "%</span></div>" +
         '<div class="stat"><span class="stat-k">pages</span><strong>' + Object.keys(byPath).length + '</strong><span class="stat-n">被看过的页面数</span></div>' +
@@ -1058,13 +1036,13 @@
       "</div>" +
 
       '<div class="stat-card">' +
-        '<div class="stat-head"><h3>访客明细</h3><em>全部 ' + (realVisits.length + botVisits.length) + ' 条</em></div>' +
+        '<div class="stat-head"><h3>访客明细</h3><em>最近 60 条</em></div>' +
         '<div class="vlist"><div class="vrow vhead"><span class="v-time">时间</span><span class="v-where">地区</span><span class="v-dev">设备 / 浏览器</span><span class="v-ref">来源</span><span class="v-path">页面</span></div>' +
           detail + "</div>" +
-        (botVisits.length
-          ? '<div class="v-note">末尾 ' + botVisits.length + ' 条疑似机器人记录已灰显，不计入上面的统计</div>'
+        (botRows.length
+          ? '<div class="v-note">另有 ' + botRows.length + ' 条疑似机器人记录已灰显，不计入上面的统计</div>'
           : "") +
-        '<div class="v-note">同一访客、同一页面 30 分钟内的重复记录已合并，标 ×n；PV 按合并后的次数统计</div>' +
+        '<div class="v-note">地区下面的时区用来交叉验证：时区与归属地不一致时会标红，多半是代理 / VPN，或 IP 库把机房网段误标成了某个城市</div>' +
       "</div>";
 
     const btn = $("#statRefresh");
@@ -1523,7 +1501,7 @@
             '<p class="nb-line">' + esc(p.tagline || SITE_TAGLINE) + "</p>" +
             '<div class="chips">' + chipsHTML() + "</div>" +
           "</div>" +
-          dood("sparkle", "doodle-flower") +
+          DOODLE_FLOWER +
         "</div>" +
       "</div>";
 
@@ -1533,41 +1511,21 @@
     jitterHand();
   }
 
-  /* ---------------- 涂鸦素材：站主手绘稿，去白底后作为透明 PNG 使用 ---------------- */
-  const DOODLE_SRC = {
-    sparkle: "img/doodle/sparkle.png",
-    bone: "img/doodle/bone.png",
-  };
-  const dood = (k, cls) => '<img class="dood' + (cls ? " " + cls : "") + '" src="' + DOODLE_SRC[k] +
-    '" alt="" aria-hidden="true" loading="lazy" draggable="false">';
-
-  /* 每张便利贴右下或左下放一张小画（按 id 固定） */
-  const NOTE_DOODLES = ["sparkle", "bone"];
-  const NOTE_SPOT = ["br", "bl", "br", "bl"];
-
   /* --- guestbook --- */
   async function viewGuest(body) {
     const rows = await API.messages.list("guest", null);
-    ensureSketchFilter();
     body.innerHTML =
-      '<div class="guest">' +
-        '<div class="guest-top">' +
-          '<div class="gform">' +
-            '<span class="tape" aria-hidden="true"></span>' +
-            '<span class="gd-bf" aria-hidden="true">' + dood("sparkle") + "</span>" +
-            '<div class="row">' +
-              '<div class="field"><label class="f-label" for="gName">your name<span class="opt">optional</span></label>' +
-              '<input class="input" id="gName" maxlength="20" placeholder="a passerby" autocomplete="nickname"></div></div>' +
-            '<div class="field"><label for="gText">message</label>' +
-              '<textarea class="textarea" id="gText" maxlength="600" rows="3" placeholder="just say hi — no account needed."></textarea></div>' +
-            '<div class="gform-foot">' +
-              '<span class="hint">anyone can leave a mark here</span>' +
-              '<button class="gsign" id="gSend" type="button">sign it</button></div>' +
-          "</div>" +
-          '<span class="gside" aria-hidden="true">' + dood("bone", "gs-a") + dood("sparkle", "gs-b") + "</span>" +
-        "</div>" +
-        '<div id="guestList"></div>' +
-      "</div>";
+      '<div class="gform">' +
+      '<div class="row">' +
+      '<div class="field"><label class="f-label">Your name<span class="opt">optional</span></label>' +
+      '<input class="input" id="gName" maxlength="20" placeholder="a passerby"></div></div>' +
+      '<div class="field"><label>Message</label>' +
+      '<textarea class="textarea" id="gText" maxlength="600" rows="3" placeholder="just say hi — no account needed."></textarea></div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+      '<span class="hint">anyone can leave a mark here</span>' +
+      '<button class="btn sm primary" id="gSend" type="button">sign it</button></div>' +
+      "</div>" +
+      '<div id="guestList"></div>';
 
     renderMessages($("#guestList"), rows, "No notes yet", "Yours could be the first.");
 
@@ -1588,69 +1546,26 @@
     };
   }
 
-  /* 手绘线稿风格：边框用 SVG 滤镜做“手抖”，文字本身不受影响 */
-  function ensureSketchFilter() {
-    if (document.getElementById("sketchRough")) return;
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("width", "0");
-    svg.setAttribute("height", "0");
-    svg.setAttribute("aria-hidden", "true");
-    svg.setAttribute("focusable", "false");
-    svg.style.position = "absolute";
-    svg.style.pointerEvents = "none";
-    svg.innerHTML =
-      '<filter id="sketchRough" x="-12%" y="-12%" width="124%" height="124%">' +
-        '<feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="2" seed="7" result="noise"/>' +
-        '<feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G"/>' +
-      "</filter>";
-    document.body.appendChild(svg);
-  }
-
-  /* 倾斜角度按 id 固定，刷新不会跳 */
-  const NOTE_TILT = [-1.4, 1.1, -0.6, 1.7, -1, 0.5, 1.3, -1.8, 0.8, -0.3];
-  function noteTilt(id) {
-    return NOTE_TILT[Math.abs(Number(id) || 0) % NOTE_TILT.length];
-  }
   function renderMessages(container, rows, emptyText, emptySub) {
     if (!container) return;
     if (!rows.length) {
       container.innerHTML = emptyState(emptyText, emptySub);
       return;
     }
-    ensureSketchFilter();
-    const wall = rows.map((m, i) => {
+    container.innerHTML = '<div class="quotes">' + rows.map((m) => {
       const name = m.nickname || "a passerby";
-      const seed = Math.abs(Number(m.id) || i);
-      const doodle = NOTE_DOODLES[seed % NOTE_DOODLES.length];
-      const spot = NOTE_SPOT[(seed + i) % NOTE_SPOT.length];
-      return '<div class="note' + (i % 3 === 1 ? " is-taped" : "") + '" style="--tilt:' + noteTilt(m.id) + 'deg;animation-delay:' +
-        Math.min(i * 60, 600) + 'ms">' +
-        '<span class="note-doodle ' + spot + ' is-' + doodle + '">' + dood(doodle) + "</span>" +
-        (S.isOwner ? '<button class="note-del" data-delmsg="' + m.id + '" type="button" aria-label="delete this note">&times;</button>' : "") +
-        '<p class="note-text">' + esc(m.content) + "</p>" +
-        '<div class="note-by"><span class="note-name">' + esc(name) + "</span>" +
-      '<span class="note-time">' + esc(shortStamp(m.created_at)) + "</span></div>" +
-        "</div>";
-    }).join("");
-
-    container.innerHTML =
-      '<div class="wall-cap"><span class="cap-mark">&ldquo;</span>little notes from you<span class="cap-mark">&rdquo;</span>' +
-        '<span class="cap-fly" aria-hidden="true">' + dood("sparkle") + "</span>" +
-      "</div>" +
-      '<div class="notes">' + wall + "</div>" +
-      '<div class="guest-scatter" aria-hidden="true">' +
-        dood("bone", "gs-bone1") + dood("sparkle", "gs-spark1") + dood("bone", "gs-bone2") +
-      "</div>";
+      return '<div class="quote">' +
+        '<p class="quote-text">' + esc(m.content) + "</p>" +
+        '<div class="quote-by"><span>' + esc(name) + "</span><span>·</span><span>" + esc(fmtFull(m.created_at)) + "</span>" +
+        (S.isOwner ? '<button class="mini" data-delmsg="' + m.id + '" type="button" style="margin-left:auto">delete</button>' : "") +
+        "</div></div>";
+    }).join("") + "</div>";
 
     $$("[data-delmsg]", container).forEach((b) => (b.onclick = async () => {
       if (!confirm("Delete this note?")) return;
       try {
         await API.messages.remove(Number(b.dataset.delmsg));
-        const el = b.closest(".note");
-        el.style.transition = "opacity .22s, transform .22s";
-        el.style.opacity = "0";
-        el.style.transform = "rotate(0deg) scale(.94)";
-        setTimeout(() => el.remove(), 220);
+        b.closest(".quote").remove();
         toast("Deleted");
       } catch (err) { toast(API.errText(err), "err"); }
     }));

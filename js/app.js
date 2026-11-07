@@ -861,6 +861,16 @@
     return t.split(/\s*·\s*|\s+/).filter(Boolean).join(" · ");
   }
 
+  /* 时区与 IP 归属地互相印证：一边说在中国、另一边不是 → 多半走了代理 / VPN，
+     或者 IP 库把 IDC 段误标成了某个城市 */
+  function tzMismatch(region, tz) {
+    const z = String(tz || "");
+    if (!z) return false;
+    const cnZone = /^(Asia\/(Shanghai|Chongqing|Harbin|Urumqi|Kashgar|Beijing)|PRC)$/.test(z);
+    const cnRegion = /^(中国|china|cn|中华人民共和国)/i.test(String(region || "").trim());
+    return cnRegion !== cnZone;
+  }
+
   function dayKey(d) {
     return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   }
@@ -971,16 +981,28 @@
         '<span class="rk-n">' + n + "</span></li>"
       ).join("");
 
-    const vrowHTML = (r, bot) =>
-      '<div class="vrow' + (bot ? " is-bot" : "") + '"' + (bot ? ' title="疑似机器人访问，不计入统计"' : "") + ">" +
-        '<span class="v-time">' + esc(shortStamp(r.created_at)) + "</span>" +
-        '<span class="v-where">' + esc(prettyRegion(r.region)) + "</span>" +
-        '<span class="v-dev">' + esc(DEV_LABEL[r.device] || r.device || "—") +
+    /* 第二行小字：给地区配时区、给设备配语言和视口，用来判断归属地可不可信 */
+    const subLine = (txt, warn, tip) => txt
+      ? '<em class="v-sub' + (warn ? " is-warn" : "") + '" title="' + esc(tip) + '">' + esc(txt) + "</em>"
+      : "";
+
+    const vrowHTML = (r, bot) => {
+      const mis = tzMismatch(r.region, r.tz);
+      const devSub = [r.lang, r.screen].filter(Boolean).join(" · ");
+      return '<div class="vrow' + (bot ? " is-bot" : "") + '"' + (bot ? ' title="疑似机器人访问，不计入统计"' : "") + ">" +
+        '<span class="v-time"><b class="v-main">' + esc(shortStamp(r.created_at)) + "</b></span>" +
+        '<span class="v-where"><b class="v-main">' + esc(prettyRegion(r.region)) + "</b>" +
+          (r.tz ? subLine(r.tz, mis, mis
+            ? "时区与 IP 归属地不一致：可能是代理 / VPN，或 IP 库把机房网段标成了这个城市"
+            : "访客浏览器报告的时区") : "") + "</span>" +
+        '<span class="v-dev"><b class="v-main">' + esc(DEV_LABEL[r.device] || r.device || "—") +
           (r.browser ? " · " + esc(r.browser) : "") +
-          (r.os ? " · " + esc(r.os) : "") + "</span>" +
-        '<span class="v-ref">' + (bot ? "机器人" : esc(REF_LABEL[r.ref_type] || "直接访问")) + "</span>" +
-        '<span class="v-path">' + esc(PATH_LABEL[normPath(r.path)] || normPath(r.path)) + "</span>" +
+          (r.os ? " · " + esc(r.os) : "") + "</b>" +
+          (devSub ? subLine(devSub, false, "浏览器语言 · 视口尺寸") : "") + "</span>" +
+        '<span class="v-ref"><b class="v-main">' + (bot ? "机器人" : esc(REF_LABEL[r.ref_type] || "直接访问")) + "</b></span>" +
+        '<span class="v-path"><b class="v-main">' + esc(PATH_LABEL[normPath(r.path)] || normPath(r.path)) + "</b></span>" +
       "</div>";
+    };
 
     const detail = realRows.slice(0, 60).map((r) => vrowHTML(r, false)).join("") +
       (botRows.length
@@ -1020,6 +1042,7 @@
         (botRows.length
           ? '<div class="v-note">另有 ' + botRows.length + ' 条疑似机器人记录已灰显，不计入上面的统计</div>'
           : "") +
+        '<div class="v-note">地区下面的时区用来交叉验证：时区与归属地不一致时会标红，多半是代理 / VPN，或 IP 库把机房网段误标成了某个城市</div>' +
       "</div>";
 
     const btn = $("#statRefresh");

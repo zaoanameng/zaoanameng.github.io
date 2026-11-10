@@ -25,7 +25,8 @@
   /* ---------------- 2. 页面结构 ---------------- */
   const MODULES = [
     { key: "diary", num: "01", name: "Journal", caption: "写给自己的话", unit: "entries", sub: "The little thoughts through zaoanameng's words", icon: I.diary },
-    { key: "photo", num: "02", name: "Gallery", caption: "光和时间", unit: "photos", sub: "The little world through zaoanameng's lens", icon: I.photo }
+    { key: "photo", num: "02", name: "Gallery", caption: "光和时间", unit: "photos", sub: "The little world through zaoanameng's lens", icon: I.photo },
+    { key: "attic", num: "03", name: "Attic", caption: "收着的零碎", unit: "", sub: "Boxes of odds and ends, still waiting under the roof", icon: I.photo, countText: "still sorting" }
   ];
   const PAGES = MODULES.concat([
     { key: "about", num: "—", name: "about", caption: "这是谁", unit: "", sub: "", icon: I.about },
@@ -52,6 +53,15 @@
       '<circle cx="32" cy="34.4" r="8.8" fill="#fff"/>' +
       '<circle cx="32" cy="34.4" r="3.5" fill="currentColor" stroke="none"/>' +
       '<circle cx="45.6" cy="26.4" r="1.9" fill="currentColor" stroke="none"/>' +
+      "</g></svg>",
+    /* 阁楼：坡屋顶 + 山墙上的小窗（阁楼窗），下面留一段墙身压住视觉重心 */
+    attic:
+      '<svg viewBox="9 8 42 42" fill="none" aria-hidden="true"><g stroke="currentColor" stroke-width="2.7" ' +
+      'stroke-linejoin="round" stroke-linecap="round" filter="url(#rough-soft)">' +
+      '<path d="M11.2 29.8 30 10.9l18.8 18.9z" fill="#fff"/>' +
+      '<path d="M14.9 29.8v14.2h30.2V29.8" fill="#fff"/>' +
+      '<path d="M26.5 24.7a3.6 3.6 0 0 1 7.1 0v4.1h-7.1z" fill="#fff"/>' +
+      '<path d="M30 21.6v7.2"/>' +
       "</g></svg>"
   };
 
@@ -316,10 +326,33 @@
      若只靠它判断，站内点来点去永远算「直接访问」。
      所以第一次按 referrer 判，之后的路由跳转一律记「站内跳转」。 */
   let trackedAny = false;
+
+  /* 同一个标签页里，一个页面只记一次：go() 和 hashchange 会各触发一次，
+     原来同一页能被写进两条。改用 sessionStorage 记账，一个会话内不重复。 */
+  const VIEWED_KEY = "am.viewed-paths";
+  function alreadyLogged(p) {
+    try {
+      const arr = JSON.parse(sessionStorage.getItem(VIEWED_KEY) || "[]");
+      return Array.isArray(arr) && arr.indexOf(p) !== -1;
+    } catch (_) { return false; }
+  }
+  function markLogged(p) {
+    try {
+      const arr = JSON.parse(sessionStorage.getItem(VIEWED_KEY) || "[]");
+      if (!Array.isArray(arr)) return;
+      if (arr.indexOf(p) === -1) arr.push(p);
+      sessionStorage.setItem(VIEWED_KEY, JSON.stringify(arr.slice(-80)));
+    } catch (_) {}
+  }
+
   async function trackView() {
     if (S.isOwner) return;
     const cfg = window.WB_CONFIG || {};
     if (!cfg.endpoint || !cfg.publishableKey) return;
+
+    const viewPath = pagePath().slice(0, 120);
+    if (alreadyLogged(viewPath)) return;
+    markLogged(viewPath);
 
     let zone = "";
     try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (_) {}
@@ -335,7 +368,7 @@
 
     const payload = {
       vid: visitorId(),
-      path: pagePath().slice(0, 120),
+      path: viewPath,
       ref: (document.referrer || "").slice(0, 400) || null,
       ref_type: trackedAny ? "internal" : refKind(document.referrer),
       region: region,
@@ -788,6 +821,12 @@
     MODULES.forEach((m) => {
       const el = list.querySelector('[data-count="' + m.key + '"]');
       if (!el) return;
+      /* 还没有内容的模块（阁楼）：不取数字，固定一句状态话 */
+      if (m.countText) {
+        el.classList.remove("is-loading");
+        el.textContent = m.countText;
+        return;
+      }
       const n = counts && typeof counts[m.key] === "number" ? counts[m.key] : null;
       if (n === null) {
         el.classList.toggle("is-loading", !done);
@@ -836,7 +875,7 @@
   /* ---------------- 9.5 访客记录（站主专用） ---------------- */
   const PATH_LABEL = {
     cover: "封面", contents: "catalog", diary: "Journal",
-    photo: "Gallery", about: "about", guest: "guestbook", stats: "visitor log"
+    photo: "Gallery", attic: "Attic", about: "about", guest: "guestbook", stats: "visitor log"
   };
   const REF_LABEL = {
     direct: "直接访问", search: "搜索引擎", social: "社交平台",
@@ -897,7 +936,7 @@
     body.innerHTML = loadingHTML("读记录中");
 
     let rows = [];
-    try { rows = await API.stats.list(); }
+    try { rows = await API.stats.list(20000); }
     catch (err) { body.innerHTML = emptyState("读不到记录", API.errText(err)); return; }
 
     if (!rows.length) {
@@ -930,6 +969,28 @@
     const botRows = [];
     rows.forEach((r) => ((isBotRow(r) ? botRows : realRows).push(r)));
 
+    /* 同一访客、同一页面、30 分钟内连着产生的记录合并成一条，时间后面标 ×n。
+       历史上「一次访问写好几条」留下的脏数据，靠这一步收干净。 */
+    const COLLAPSE_MS = 30 * 60 * 1000;
+    const tsOf = (r) => new Date(r.created_at).getTime() || 0;
+    function collapseVisits(list) {
+      const sorted = list.slice().sort((a, b) => tsOf(b) - tsOf(a));
+      const out = [];
+      sorted.forEach((r) => {
+        const last = out[out.length - 1];
+        if (last && last.vid === r.vid && normPath(last.path) === normPath(r.path) &&
+            tsOf(last) - tsOf(r) <= COLLAPSE_MS) {
+          last.n += 1;
+          last.ts = tsOf(r);
+          return;
+        }
+        out.push(Object.assign({}, r, { n: 1 }));
+      });
+      return out;
+    }
+    const realVisits = collapseVisits(realRows);
+    const botVisits = collapseVisits(botRows);
+
     const uvSet = new Set();
     const today = dayKey(new Date());
     const todaySet = new Set();
@@ -939,7 +1000,7 @@
     const byPath = {};
     const byRegion = {};
 
-    realRows.forEach((r) => {
+    realVisits.forEach((r) => {
       uvSet.add(r.vid);
       const k = dayKey(new Date(r.created_at));
       byDay[k] = (byDay[k] || 0) + 1;
@@ -951,7 +1012,7 @@
       if (k === today) { todayPV += 1; todaySet.add(r.vid); }
     });
 
-    const pv = realRows.length;
+    const pv = realVisits.length;
     const uv = uvSet.size;
 
     /* 近 14 天：标签带月份（跨月不再像日期倒着走） */
@@ -990,7 +1051,8 @@
       const mis = tzMismatch(r.region, r.tz);
       const devSub = [r.lang, r.screen].filter(Boolean).join(" · ");
       return '<div class="vrow' + (bot ? " is-bot" : "") + '"' + (bot ? ' title="疑似机器人访问，不计入统计"' : "") + ">" +
-        '<span class="v-time"><b class="v-main">' + esc(shortStamp(r.created_at)) + "</b></span>" +
+        '<span class="v-time"><b class="v-main">' + esc(shortStamp(r.created_at)) + "</b>" +
+          (r.n > 1 ? '<em class="v-n">×' + r.n + "</em>" : "") + "</span>" +
         '<span class="v-where"><b class="v-main">' + esc(prettyRegion(r.region)) + "</b>" +
           (r.tz ? subLine(r.tz, mis, mis
             ? "时区与 IP 归属地不一致：可能是代理 / VPN，或 IP 库把机房网段标成了这个城市"
@@ -1004,9 +1066,10 @@
       "</div>";
     };
 
-    const detail = realRows.slice(0, 60).map((r) => vrowHTML(r, false)).join("") +
-      (botRows.length
-        ? botRows.slice(0, 20).map((r) => vrowHTML(r, true)).join("")
+    /* 明细：全部列出，不做条数截断。同一访客同页 30 分钟内的重复已合并成 ×n */
+    const detail = realVisits.map((r) => vrowHTML(r, false)).join("") +
+      (botVisits.length
+        ? botVisits.map((r) => vrowHTML(r, true)).join("")
         : "");
 
     body.innerHTML =
@@ -1036,12 +1099,16 @@
       "</div>" +
 
       '<div class="stat-card">' +
-        '<div class="stat-head"><h3>访客明细</h3><em>最近 60 条</em></div>' +
+        '<div class="stat-head"><h3>访客明细</h3><em>全部 ' + rows.length + " 条" +
+          (realVisits.length + botVisits.length < rows.length
+            ? " · 合并为 " + (realVisits.length + botVisits.length) + " 行"
+            : "") + "</em></div>" +
         '<div class="vlist"><div class="vrow vhead"><span class="v-time">时间</span><span class="v-where">地区</span><span class="v-dev">设备 / 浏览器</span><span class="v-ref">来源</span><span class="v-path">页面</span></div>' +
           detail + "</div>" +
         (botRows.length
           ? '<div class="v-note">另有 ' + botRows.length + ' 条疑似机器人记录已灰显，不计入上面的统计</div>'
           : "") +
+        '<div class="v-note">明细不做条数截断：从第一条到最新一条全部列出。同一访客、同一页面 30 分钟内的重复记录合并成一行，时间后标 ×n。</div>' +
         '<div class="v-note">地区下面的时区用来交叉验证：时区与归属地不一致时会标红，多半是代理 / VPN，或 IP 库把机房网段误标成了某个城市</div>' +
       "</div>";
 
@@ -1067,6 +1134,9 @@
       if ($("#editProfile")) $("#editProfile").onclick = openProfileForm;
     } else if (key === "guest") {
       actions.innerHTML = "";
+    } else if (key === "attic") {
+      /* 阁楼还没开放：不给「＋」按钮，只留一个空位 */
+      actions.innerHTML = "";
     } else {
       actions.innerHTML = S.isOwner
         ? '<button class="mini" id="addBtn" type="button">' + (key === "diary" ? "＋ 写一篇" : "＋ 放张照片") + "</button>"
@@ -1081,6 +1151,7 @@
       else if (key === "photo") await viewPhoto(body);
       else if (key === "about") await viewAbout(body);
       else if (key === "guest") await viewGuest(body);
+      else if (key === "attic") viewAttic(body);
     } catch (err) {
       body.innerHTML = emptyState("这个角落暂时打不开", API.errText(err));
     }
@@ -1091,6 +1162,17 @@
       (sub ? '<p class="sub">' + esc(sub) + "</p>" : "") + "</div>";
   }
   function ownerHint() { return S.isOwner ? "" : " Log in to add one."; }
+
+  /* 阁楼：还没有内容，先给一个「正在收拾」的空位，风格跟手账内页一致 */
+  function viewAttic(body) {
+    body.innerHTML =
+      '<div class="attic-wrap"><div class="attic-hold">' +
+        '<span class="attic-tape" aria-hidden="true"></span>' +
+        '<div class="attic-art" aria-hidden="true">' + CAT_ART.attic + "</div>" +
+        '<p class="attic-line">The attic is still being sorted</p>' +
+        '<p class="attic-sub">箱子都还在上面，等我把它们一件件搬下来。<br>Maybe next time.</p>' +
+      "</div></div>";
+  }
 
   /* --- 日记：固定尺寸的卡片 + 单篇阅读页 --- */
   async function viewDiary(body) {

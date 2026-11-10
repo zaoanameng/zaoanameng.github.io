@@ -642,6 +642,35 @@ a{color:inherit;}
   margin-top:9px;font-size:.7rem;letter-spacing:.08em;color:var(--ink-3);
 }
 
+/* ---------- 阁楼：还没收拾出来的空位 ---------- */
+.attic-wrap{
+  display:grid;place-items:center;
+  min-height:clamp(300px,50vh,520px);
+  padding:10px 0 20px;
+}
+.attic-hold{
+  position:relative;width:100%;max-width:430px;padding:46px 30px 40px;
+  text-align:center;
+  border:2px dashed rgba(22,34,61,.16);border-radius:16px;
+  background:rgba(255,252,244,.55);
+}
+.attic-tape{
+  position:absolute;left:50%;top:-13px;width:86px;height:24px;
+  transform:translateX(-50%) rotate(-2.4deg);
+  background:rgba(226,214,183,.72);
+  box-shadow:0 1px 0 rgba(22,34,61,.05);
+  clip-path:polygon(2% 0,98% 6%,100% 92%,0 100%);
+  pointer-events:none;
+}
+.attic-art{width:84px;height:84px;margin:0 auto 18px;color:var(--blue);opacity:.92;}
+.attic-art svg{width:100%;height:100%;display:block;overflow:visible;}
+.attic-line{
+  margin:0;font-family:var(--hand);font-size:1.32rem;letter-spacing:.02em;color:var(--ink-2);
+}
+.attic-sub{
+  margin:14px 0 0;font-size:.78rem;line-height:2;letter-spacing:.02em;color:var(--ink-3);
+}
+
 /* ==========================================================
    journal：固定尺寸卡片 + 单篇阅读页
    ========================================================== */
@@ -835,7 +864,7 @@ a{color:inherit;}
 /* 明细：时间 / 地区固定，设备和来源贴着内容走，页面占满剩余宽度 */
 .vlist{display:grid;gap:0;}
 .vrow{
-  display:grid;grid-template-columns:82px 140px auto 88px minmax(0,1fr);
+  display:grid;grid-template-columns:108px 140px auto 88px minmax(0,1fr);
   gap:10px;align-items:center;
   padding:8px 0;border-bottom:1px dashed var(--line);
   font-size:.68rem;color:var(--ink-2);
@@ -854,7 +883,12 @@ a{color:inherit;}
 .vrow .v-sub.is-warn{color:var(--red);opacity:1;}
 .vrow.is-bot .v-sub{opacity:.7;}
 .vhead{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);}
-.v-time{font-variant-numeric:tabular-nums;color:var(--ink-3);}
+.v-time{font-variant-numeric:tabular-nums;color:var(--ink-3);display:flex;align-items:center;gap:0;min-width:0;}
+.v-time .v-main{flex:0 1 auto;}
+.v-n{
+  margin-left:5px;font-style:normal;font-size:.55rem;letter-spacing:.02em;
+  color:var(--ink-3);padding:1px 4px;border-radius:6px;background:rgba(22,34,61,.055);
+}
 .v-ref{color:var(--ink-3);}
 /* 疑似机器人的历史记录：灰显保留，不计入统计 */
 .vrow.is-bot{opacity:.42;}
@@ -884,6 +918,9 @@ a{color:inherit;}
   .cover-nav{gap:26px;}
   .sheet-foot{font-size:.58rem;letter-spacing:.14em;}
   .mod-head{padding:2.6vh 0 2.6vh;}
+  .attic-hold{margin:4vh auto 3vh;padding:38px 20px 32px;}
+  .attic-art{width:70px;height:70px;margin-bottom:14px;}
+  .attic-line{font-size:1.18rem;}
   .about{grid-template-columns:1fr;gap:22px;}
   .about-face{max-width:170px;}
   .gform{padding:20px 16px;}
@@ -921,7 +958,7 @@ a{color:inherit;}
   .stat-card{padding:15px 14px 13px;}
   .bars{height:104px;gap:4px;}
   .bar-d{font-size:.46rem;letter-spacing:-.02em;}
-  .vrow{grid-template-columns:76px minmax(0,1fr) auto;font-size:.64rem;}
+  .vrow{grid-template-columns:86px minmax(0,1fr) 88px;font-size:.62rem;}
   .vrow .v-dev,.vrow .v-ref{display:none;}
   .vrow .v-path{text-align:right;}
 }

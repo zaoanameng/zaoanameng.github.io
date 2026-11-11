@@ -26,7 +26,7 @@
   const MODULES = [
     { key: "diary", num: "01", name: "Journal", caption: "写给自己的话", unit: "entries", sub: "The little thoughts through zaoanameng's words", icon: I.diary },
     { key: "photo", num: "02", name: "Gallery", caption: "光和时间", unit: "photos", sub: "The little world through zaoanameng's lens", icon: I.photo },
-    { key: "attic", num: "03", name: "Attic", caption: "收着的零碎", unit: "", sub: "Boxes of odds and ends, still waiting under the roof", icon: I.photo, countText: "still sorting" }
+    { key: "attic", num: "03", name: "Attic", caption: "收着的零碎", unit: "", sub: "A patch of night sky, kept under the roof", icon: I.photo, countText: "39 stars" }
   ];
   const PAGES = MODULES.concat([
     { key: "about", num: "—", name: "about", caption: "这是谁", unit: "", sub: "", icon: I.about },
@@ -1122,7 +1122,7 @@
     if (!m) return go("contents");
 
     const head = $("#view-module .mod-head");
-    if (head) head.classList.toggle("is-hidden", key === "about");
+    if (head) head.classList.toggle("is-hidden", key === "about" || key === "attic");
     $("#modTitle").textContent = m.name;
     $("#modSub").textContent = m.sub;
     const mini = $("#modMini");
@@ -1163,15 +1163,36 @@
   }
   function ownerHint() { return S.isOwner ? "" : " Log in to add one."; }
 
-  /* 阁楼：还没有内容，先给一个「正在收拾」的空位，风格跟手账内页一致 */
+  /* 阁楼：一扇开向夜空的窗。
+     里面那页（attic.html）是独立的星图，自己带样式和状态，
+     用 iframe 装进来最省事；再把它的真实高度量出来，免得框里套一层滚动条。 */
   function viewAttic(body) {
+    /* 带上当前的查询串（里面有 ?sharecode=），新窗口和 iframe 都不会被网关拦 */
+    const qs = location.search || "";
     body.innerHTML =
-      '<div class="attic-wrap"><div class="attic-hold">' +
-        '<span class="attic-tape" aria-hidden="true"></span>' +
-        '<div class="attic-art" aria-hidden="true">' + CAT_ART.attic + "</div>" +
-        '<p class="attic-line">The attic is still being sorted</p>' +
-        '<p class="attic-sub">箱子都还在上面，等我把它们一件件搬下来。<br>Maybe next time.</p>' +
-      "</div></div>";
+      '<div class="attic-room">' +
+        '<div class="attic-sky">' +
+          '<iframe class="attic-frame" src="attic.html' + esc(qs) + '" title="阁楼的窗 —— 夜空里的三十九颗星" loading="lazy"></iframe>' +
+        "</div>" +
+        '<p class="attic-cap">阁楼的窗朝北。抽一颗星，就是今天要做的那件事。' +
+          '<a class="attic-open" href="attic.html' + esc(qs) + '" target="_blank" rel="noopener">单独打开 ↗</a></p>' +
+      "</div>";
+
+    const f = body.querySelector(".attic-frame");
+    if (!f) return;
+    const fit = () => {
+      try {
+        const d = f.contentDocument;
+        if (!d) return;
+        const h = Math.max(600, d.documentElement.scrollHeight || 0);
+        if (h && Math.abs(h - (parseFloat(f.style.height) || 0)) > 4) f.style.height = h + "px";
+      } catch (_) { /* 跨域就拿不到，退回 CSS 里的默认高度 */ }
+    };
+    f.addEventListener("load", () => {
+      fit();
+      setTimeout(fit, 400);
+      setTimeout(fit, 1200);
+    });
   }
 
   /* --- 日记：固定尺寸的卡片 + 单篇阅读页 --- */

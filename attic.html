@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>你想做点什么 · 夜空星座</title>
+<!-- 字体非阻塞加载：Google Fonts 在国内常被挡，挡住时不能让整页白屏 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  :root{
+    --bg:#06080f;
+    --ink:#f2ecdf;
+    --ink-70:rgba(242,236,223,.70);
+    --ink-52:rgba(242,236,223,.52);
+    --ink-34:rgba(242,236,223,.34);
+    --ink-18:rgba(242,236,223,.18);
+    --line:rgba(242,236,223,.12);
+    --gold:#e7b67e;
+    --gold-dim:rgba(231,182,126,.45);
+    --serif:"Noto Serif SC","Songti SC","Source Han Serif SC","SimSun",Georgia,serif;
+    --latin:"Playfair Display",Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden;
+  }
+  /* 大气层的光 */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(1000px 700px at 12% -12%, rgba(54,70,132,.36), transparent 62%),
+      radial-gradient(820px 560px at 96% 8%, rgba(102,58,116,.26), transparent 64%),
+      radial-gradient(900px 520px at 44% 112%, rgba(38,40,86,.30), transparent 68%);
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 34px 52px;position:relative;z-index:1}
+
+  /* ---------- 页眉 ---------- */
+  .top{
+    display:flex;justify-content:space-between;align-items:baseline;gap:16px;
+    font-size:9.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--ink-34);
+    border-bottom:1px solid var(--line);padding-bottom:13px;
+  }
+  .top .brand{color:var(--ink);letter-spacing:.46em;font-size:11px;font-weight:500}
+  .top .tag{font-family:var(--latin);letter-spacing:.2em}
+
+  /* ---------- 题头 ---------- */
+  .lead{margin-top:28px}
+  .kicker{
+    display:flex;align-items:center;gap:9px;margin:0 0 12px;
+    font-size:9.5px;letter-spacing:.34em;text-transform:uppercase;color:var(--gold);
+    min-height:12px;
+  }
+  .kicker .dot{width:4px;height:4px;border-radius:50%;background:currentColor;flex:none;
+    box-shadow:0 0 8px 1px rgba(231,182,126,.7)}
+  h1{
+    font-family:var(--serif);font-weight:400;letter-spacing:.025em;
+    font-size:clamp(24px,3.5vw,37px);line-height:1.44;margin:0;max-width:23em;
+  }
+  h1.settle{animation:rise .55s cubic-bezier(.2,.8,.3,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .meta{margin:13px 0 0;font-size:11px;letter-spacing:.15em;color:var(--ink-52);min-height:16px}
+  .meta .sep{opacity:.4;margin:0 6px}
+
+  .acts{display:flex;align-items:center;gap:20px;margin-top:23px;flex-wrap:wrap}
+  .roll{
+    font-family:var(--sans);cursor:pointer;color:#0a0c14;background:var(--ink);
+    border:1px solid var(--ink);padding:14px 26px;
+    font-size:10.5px;letter-spacing:.38em;text-indent:.38em;
+    transition:background-color .25s ease,border-color .25s ease,box-shadow .35s ease,opacity .2s;
+  }
+  .roll:hover{background:var(--gold);border-color:var(--gold);box-shadow:0 0 26px rgba(231,182,126,.28)}
+  .roll:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .ghost{
+    background:none;border:0;border-bottom:1px solid transparent;padding:2px 0;cursor:pointer;
+    font-family:inherit;font-size:10px;letter-spacing:.26em;color:var(--ink-34);transition:.25s;
+  }
+  .ghost:hover{color:var(--ink);border-bottom-color:var(--ink)}
+  .ghost:disabled{opacity:.3;cursor:not-allowed;border-bottom-color:transparent}
+  .tally{margin-left:auto;font-size:9.5px;letter-spacing:.2em;color:var(--ink-34);white-space:nowrap}
+  .tally b{font-family:var(--latin);font-weight:400;font-size:12.5px;color:var(--ink-70)}
+  .tally .sep{opacity:.4;margin:0 8px}
+
+  /* ---------- 星空 ---------- */
+  .sky{position:relative;width:100%;aspect-ratio:1000/620;margin-top:12px;isolation:isolate}
+  .neb{position:absolute;pointer-events:none}
+  .neb-a{left:-4%;top:-6%;width:58%;height:62%;
+    background:radial-gradient(closest-side, rgba(74,90,168,.20), transparent 74%)}
+  .neb-b{right:-6%;top:-4%;width:52%;height:58%;
+    background:radial-gradient(closest-side, rgba(140,84,146,.16), transparent 74%)}
+  .milky{
+    position:absolute;left:-14%;top:30%;width:128%;height:30%;
+    background:linear-gradient(90deg,transparent,rgba(116,138,214,.055) 26%,
+      rgba(196,178,228,.10) 48%,rgba(140,150,214,.07) 68%,transparent);
+    transform:rotate(-14deg);filter:blur(16px);pointer-events:none;
+  }
+  .dust{position:absolute;inset:0;pointer-events:none}
+  .dust i{position:absolute;width:1px;height:1px;border-radius:50%;background:#e2e8ff;display:block}
+  .dust i.big{width:1.5px;height:1.5px}
+
+  .links{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .links line{stroke-linecap:round}
+  .base{stroke:rgba(168,190,240,.13);stroke-width:1}
+  .link{stroke:rgba(231,182,126,.55);stroke-width:1.1;
+    transition:stroke-dashoffset .95s cubic-bezier(.33,0,.22,1),stroke .4s ease}
+  .sky.hovering .base{stroke:rgba(168,190,240,.07)}
+
+  .stars{position:absolute;inset:0}
+  .st{
+    position:absolute;width:34px;height:34px;padding:0;border:0;background:none;
+    transform:translate(-50%,-50%);cursor:pointer;transition:opacity .35s ease;
+  }
+  .st i{position:absolute;display:block;border-radius:50%}
+  .st .halo{
+    inset:0;background:radial-gradient(closest-side, rgba(196,212,255,.22), transparent 76%);
+    transform:scale(calc(.9 * var(--s)));transition:transform .55s ease,background .55s ease;
+  }
+  .st .core{
+    left:50%;top:50%;width:calc(3px * var(--s));height:calc(3px * var(--s));
+    background:#f5f7ff;transform:translate(-50%,-50%);
+    box-shadow:0 0 6px 1px rgba(206,220,255,.45);
+    animation:tw 8s ease-in-out infinite;animation-delay:var(--d);
+    transition:background .5s ease,box-shadow .5s ease,width .35s ease,height .35s ease;
+  }
+  .st .ring{inset:0;border:1px solid transparent;transform:scale(.55);transition:.5s ease}
+  @keyframes tw{0%,100%{opacity:.9}42%{opacity:.44}68%{opacity:1}}
+
+  /* 点亮过（抽到过） */
+  .st.seen .core{background:#ffeed3;box-shadow:0 0 8px 1px rgba(231,182,126,.5)}
+  .st.seen .halo{background:radial-gradient(closest-side, rgba(231,182,126,.16), transparent 76%)}
+  /* 做过了 */
+  .st .mark{
+    position:absolute;left:calc(50% + 6px);top:calc(50% - 10px);
+    width:5px;height:5px;background:none;border-radius:0;
+    color:var(--gold);font-size:8px;line-height:1;opacity:0;transition:opacity .5s ease;
+  }
+  .st.done .mark{opacity:.95}
+
+  .st.hot .halo{transform:scale(calc(1.5 * var(--s)));background:radial-gradient(closest-side, rgba(231,182,126,.3), transparent 76%)}
+  .st.hot .core{box-shadow:0 0 10px 2px rgba(231,182,126,.6)}
+  .sky.hovering .st:not(.hot):not(.on){opacity:.5}
+
+  .st.on .core{width:calc(5px * var(--s));height:calc(5px * var(--s));background:#fff2dc;
+    box-shadow:0 0 16px 5px rgba(231,182,126,.85);animation:none;opacity:1}
+  .st.on .halo{transform:scale(calc(2.2 * var(--s)));
+    background:radial-gradient(closest-side, rgba(231,182,126,.30), transparent 74%)}
+  .st.on .ring{border-color:rgba(231,182,126,.42);transform:scale(1);animation:pulse 3.6s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(.6);opacity:0}26%{opacity:1}100%{transform:scale(1.4);opacity:0}}
+
+  .st.spin .core{background:#fff;box-shadow:0 0 12px 3px rgba(231,182,126,.75);animation:none;opacity:1}
+  .st.spin .halo{transform:scale(calc(1.6 * var(--s)));
+    background:radial-gradient(closest-side, rgba(231,182,126,.26), transparent 76%)}
+
+  /* 星旁边的注记 */
+  .callout{
+    position:absolute;z-index:5;pointer-events:none;opacity:0;max-width:230px;text-align:center;
+    transition:opacity .5s ease,left .55s cubic-bezier(.4,0,.2,1),top .55s cubic-bezier(.4,0,.2,1);
+  }
+  .callout.show{opacity:1}
+  .callout::before{content:"";display:block;width:26px;height:1px;background:var(--gold-dim);margin:0 auto 9px}
+  .co-no{display:block;font-family:var(--latin);font-size:9px;letter-spacing:.28em;color:var(--gold);opacity:.85;margin-bottom:5px}
+  .co-t{display:block;font-family:var(--serif);font-size:12.5px;line-height:1.55;letter-spacing:.04em;color:rgba(242,236,223,.92)}
+
+  .tip{
+    position:absolute;z-index:6;pointer-events:none;opacity:0;transform:translate(-50%,-152%);
+    transition:opacity .2s;background:rgba(8,10,18,.94);border:1px solid rgba(242,236,223,.14);
+    padding:6px 11px;font-size:11px;letter-spacing:.05em;white-space:nowrap;color:rgba(242,236,223,.92);
+  }
+  .tip.show{opacity:1}
+
+  /* ---------- 星图页脚 ---------- */
+  .sky-foot{
+    display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+    margin-top:10px;padding-bottom:8px;
+  }
+  .cname{font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:var(--ink-34)}
+  .cname em{font-family:var(--latin);font-style:italic;font-size:10px;letter-spacing:.16em;opacity:.95}
+  .mini{
+    background:none;border:0;cursor:pointer;font-family:inherit;font-size:9px;
+    letter-spacing:.22em;color:var(--ink-18);transition:.25s;padding:2px 0;
+  }
+  .mini:hover{color:var(--gold)}
+  .hint{margin:2px 0 0;font-size:9.5px;letter-spacing:.2em;color:var(--ink-34);text-align:center}
+
+  /* ---------- 折叠清单 ---------- */
+  .fold{margin-top:20px}
+  .fold summary{
+    display:flex;align-items:baseline;gap:14px;cursor:pointer;list-style:none;
+    padding:13px 0;border-top:1px solid var(--line);
+    font-size:9.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-52);
+  }
+  .fold summary::-webkit-details-marker{display:none}
+  .fold summary .n{font-family:var(--latin);letter-spacing:.1em;color:var(--ink-34);font-size:11px}
+  .fold summary .plus{margin-left:auto;color:var(--ink-34);font-size:12px}
+  .fold summary .plus::before{content:"+"}
+  .fold[open] summary .plus::before{content:"−"}
+  summary .clear{
+    background:none;border:0;font-family:inherit;font-size:9px;letter-spacing:.2em;
+    color:var(--ink-34);cursor:pointer;padding:2px 0;text-transform:uppercase;
+  }
+  .clear:hover{color:var(--gold)}
+  .row{
+    display:grid;grid-template-columns:56px 1fr auto;align-items:baseline;gap:14px;
+    width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);
+    padding:11px 2px;cursor:pointer;font-family:inherit;color:var(--ink);
+    transition:padding-left .22s ease,background-color .22s ease;
+  }
+  .row:hover,.row.lit{padding-left:8px;background-color:rgba(255,255,255,.045)}
+  .row .tm{font-family:var(--latin);font-size:10.5px;color:var(--ink-34);letter-spacing:.1em}
+  .row .tt{font-family:var(--serif);font-size:14px;letter-spacing:.02em;line-height:1.5}
+  .row .mt{font-size:9.5px;letter-spacing:.16em;color:var(--ink-34);white-space:nowrap}
+  .row .ck{color:var(--gold);margin-right:7px;font-size:10px}
+  .row .st-dot{display:inline-block;width:4px;height:4px;border-radius:50%;
+    background:var(--ink-18);margin-right:8px;vertical-align:middle;transition:.4s}
+  .row.seen .st-dot{background:var(--gold);box-shadow:0 0 6px rgba(231,182,126,.8)}
+
+  .toast{
+    position:fixed;left:50%;bottom:34px;transform:translate(-50%,14px);
+    background:var(--ink);color:#0a0c14;padding:12px 22px;
+    font-size:11px;letter-spacing:.18em;opacity:0;pointer-events:none;
+    transition:.3s ease;z-index:99;white-space:nowrap;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:680px){
+    .wrap{padding:22px 20px 40px}
+    .lead{margin-top:20px}
+    h1{font-size:clamp(19px,5vw,22px)}
+    .sky{aspect-ratio:1000/760;margin-top:8px}
+    .acts{gap:14px;margin-top:18px}
+    .roll{padding:13px 22px;letter-spacing:.3em;text-indent:.3em}
+    .tally{margin-left:0;width:100%}
+    .co-t{font-size:11.5px}
+    .callout{max-width:168px}
+    .top .tag{display:none}
+    .row{grid-template-columns:44px 1fr;gap:10px}
+    .row .mt{grid-column:2;margin-top:2px}
+    .hint{letter-spacing:.14em}
+    .hint .kb{display:none}
+    .cname{letter-spacing:.3em}
+  }
+  @media (max-height:820px){
+    .lead{margin-top:18px}
+    h1{font-size:clamp(22px,2.6vw,29px)}
+    .sky{max-width:840px;margin-left:auto;margin-right:auto}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <span class="brand">你想做点什么</span>
+    <span class="tag" id="tag">夜空 · 三十九颗星</span>
+  </header>
+
+  <section class="lead">
+    <p class="kicker"><span class="dot"></span><span id="kicker">此刻 · 星图还是空的</span></p>
+    <h1 id="title" aria-live="polite">抽一颗星，它就是你今天要做的事。</h1>
+    <p class="meta" id="meta">三十九颗星，三十九件小事 · 抽过的会留下一条线</p>
+    <div class="acts">
+      <button class="roll" id="roll">抽 一 颗 星</button>
+      <button class="ghost" id="doneBtn" disabled>执行</button>
+      <span class="tally" id="stats"></span>
+    </div>
+  </section>
+
+  <section class="sky" id="sky">
+    <div class="neb neb-a"></div>
+    <div class="neb neb-b"></div>
+    <div class="milky"></div>
+    <div class="dust" id="dust"></div>
+    <svg class="links" id="links" preserveAspectRatio="none"></svg>
+    <div class="stars" id="stars"></div>
+    <div class="callout" id="callout">
+      <span class="co-no" id="coNo"></span>
+      <span class="co-t" id="coT"></span>
+    </div>
+    <div class="tip" id="tip"></div>
+  </section>
+
+  <div class="sky-foot">
+    <span class="cname"><em>Anser</em> · 雁 · 三十九颗星</span>
+    <button class="mini" id="resetSky">抹掉连线</button>
+  </div>
+  <p class="hint">点任意一颗星，也可以直接选它<span class="kb"> · 空格键也能抽</span></p>
+
+  <details class="fold" id="doneBox">
+    <summary>
+      <span class="n" id="doneNo">00</span>
+      <span>执行清单</span>
+      <button class="clear" id="clearBtn">清空</button>
+      <span class="plus"></span>
+    </summary>
+    <div id="doneList"></div>
+  </details>
+
+  <details class="fold">
+    <summary>
+      <span class="n" id="allNo">39</span>
+      <span>全部 · 三十九颗星</span>
+      <span class="plus"></span>
+    </summary>
+    <div id="grid"></div>
+  </details>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- 三十九件小事 ---------- */
+const DATA = [
+  ["认认真真洗个舒服的热水澡","好好休息","30 分钟","21:30"],
+  ["喝一杯暖暖的热牛奶","好好休息","5 分钟","22:00"],
+  ["换上软软干干净净的衣服","好好休息","10 分钟","09:00"],
+  ["泡个脚","好好休息","20 分钟","21:10"],
+  ["戴上耳机，钻进自己的小世界","好好休息","随意","22:30"],
+  ["放空发呆五分钟，啥也不想","好好休息","5 分钟","15:00"],
+  ["望着窗外发呆","好好休息","10 分钟","16:30"],
+  ["坐着晒晒太阳，放空自己","好好休息","20 分钟","14:00"],
+  ["换一套新床品","好好休息","15 分钟","20:30"],
+
+  ["出门随便溜达一会儿","动一动","30 分钟","17:00"],
+  ["跟着视频跳操或拉伸 20 分钟","动一动","20 分钟","07:30"],
+  ["去公园逛逛","动一动","1 小时","10:00"],
+  ["去健身房动一动","动一动","1 小时","19:00"],
+  ["跑跑步，痛快出一身汗","动一动","40 分钟","06:30"],
+
+  ["看一部纪录片/剧/综艺/电影","看看听听","2 小时","20:00"],
+  ["重温《我的阿勒泰》","看看听听","剧集时长","21:50"],
+  ["听一期播客","看看听听","40 分钟","08:30"],
+  ["看 TED 演讲","看看听听","20 分钟","13:00"],
+
+  ["安安静静练字半小时","写写画画","30 分钟","21:00"],
+  ["随手画个小小的涂鸦","写写画画","15 分钟","15:30"],
+  ["记下今天一件开心的小事","写写画画","5 分钟","23:00"],
+  ["写一句给未来自己的话","写写画画","10 分钟","23:30"],
+  ["写日记记录当下","写写画画","20 分钟","22:45"],
+  ["写写自己的优点和缺点","写写画画","20 分钟","23:15"],
+  ["写下一件一直想做却不敢尝试的事","写写画画","20 分钟","23:45"],
+
+  ["收拾乱糟糟的桌面","动手收拾","20 分钟","18:30"],
+  ["折折纸","动手收拾","15 分钟","16:00"],
+  ["去拼豆！","动手收拾","1 小时","19:30"],
+  ["整理收拾衣服","动手收拾","30 分钟","10:30"],
+
+  ["逛超市随便逛逛","出门逛逛","40 分钟","11:00"],
+  ["泡图书馆待上三小时","出门逛逛","3 小时","13:30"],
+  ["出门看日落","出门逛逛","30 分钟","18:40"],
+
+  ["给家人打个电话","找人聊聊","20 分钟","19:45"],
+  ["和朋友通个电话","找人聊聊","20 分钟","20:45"],
+  ["给一个人发真诚的夸奖","找人聊聊","5 分钟","12:30"],
+
+  ["刷小红书找找灵感","手机与充电","20 分钟","12:00"],
+  ["清理相册","手机与充电","20 分钟","16:45"],
+  ["放下手机半小时","手机与充电","30 分钟","20:15"],
+  ["背单词去！","手机与充电","15 分钟","07:00"]
+];
+
+/* ---------- 星图坐标（1000 × 620） ----------
+   一只向左飞的雁：头在左上，身体居中，两翼向右展开，尾在左下 */
+const RAW = [
+  [1,152,150,"h"],[2,186,116,"h"],[3,118,140,"h"],[4,150,190,"h"],
+  [5,196,215,"h"],[6,222,262,"h"],[7,242,310,"h"],
+  [8,268,352,"b"],[9,302,388,"b"],[10,344,410,"b"],[11,390,418,"b"],
+  [12,240,392,"b"],[13,212,432,"b"],[14,190,474,"b"],[15,174,516,"b"],
+  [16,286,320,"b"],[17,362,372,"b"],
+  [18,420,384,"u"],[19,452,340,"u"],[20,486,296,"u"],[21,522,254,"u"],
+  [22,562,218,"u"],[23,606,188,"u"],[24,652,166,"u"],[25,700,152,"u"],
+  [26,748,148,"u"],[27,782,120,"u"],[28,806,150,"u"],[29,776,178,"u"],
+  [30,550,300,"u"],[31,640,224,"u"],
+  [32,418,436,"l"],[33,464,466,"l"],[34,514,488,"l"],[35,568,500,"l"],
+  [36,622,504,"l"],[37,674,498,"l"],[38,500,432,"l"],[39,580,460,"l"]
+];
+
+/* 星座本来的骨架（淡线） */
+const EDGES = [
+  [3,1],[1,2],[1,4],[4,5],[5,6],[6,7],[7,16],[16,8],
+  [8,9],[9,10],[10,11],[10,17],[17,11],[8,12],[12,13],[13,14],[14,15],[9,12],
+  [11,18],[18,19],[19,20],[20,21],[21,22],[22,23],[23,24],[24,25],[25,26],
+  [26,27],[27,28],[28,29],[29,26],[21,30],[30,22],[23,31],[31,24],
+  [11,32],[32,33],[33,34],[34,35],[35,36],[36,37],[32,38],[38,35],[38,39],[39,36]
+];
+
+const W = 1000, H = 620;
+const P = RAW.map(([id, x, y, g]) => ({ id, x: x / W * 100, y: y / H * 100, g, deg: 0 }));
+const byId = {};
+P.forEach(p => { byId[p.id] = p; });
+EDGES.forEach(([a, b]) => { byId[a].deg++; byId[b].deg++; });
+
+/* 区域 → 事件类型：翼上是出门与运动，身上是休息，头上是写字 */
+(function assign(){
+  const byCat = {};
+  DATA.forEach(d => { (byCat[d[1]] = byCat[d[1]] || []).push(d); });
+  const groups = {
+    h: byCat["写写画画"],
+    u: [...byCat["看看听听"], ...byCat["手机与充电"], ...byCat["出门逛逛"], ...byCat["动手收拾"].splice(0, 3)],
+    l: [...byCat["动一动"], ...byCat["找人聊聊"]],
+    b: [...byCat["好好休息"], ...byCat["动手收拾"]]
+  };
+  const ptr = { h: 0, u: 0, l: 0, b: 0 };
+  P.forEach(p => { const list = groups[p.g]; p.item = list[ptr[p.g]++] || list[0]; });
+})();
+
+const ZONE = { h: "头部", u: "上翼", l: "下翼", b: "躯干" };
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+const sky = $("sky"), starsBox = $("stars"), svg = $("links"), callout = $("callout"), tipEl = $("tip");
+const NS = "http://www.w3.org/2000/svg";
+
+/* ---------- 背景微尘 ---------- */
+(function dust(){
+  let seed = 20261107;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  const box = $("dust");
+  for (let i = 0; i < 150; i++){
+    const d = document.createElement("i");
+    const big = rnd() > 0.82;
+    d.className = big ? "big" : "";
+    d.style.left = (rnd() * 100).toFixed(2) + "%";
+    d.style.top = (rnd() * 100).toFixed(2) + "%";
+    d.style.opacity = (0.08 + rnd() * 0.34).toFixed(2);
+    if (rnd() > 0.62){
+      d.style.animation = "tw " + (5 + rnd() * 7).toFixed(1) + "s ease-in-out " + (rnd() * 6).toFixed(1) + "s infinite";
+    }
+    box.appendChild(d);
+  }
+})();
+
+/* ---------- 坐标：SVG 用像素，星用百分比 ---------- */
+const baseRefs = [], linkRefs = [];
+function mkLine(a, b, cls){
+  const l = document.createElementNS(NS, "line");
+  l.setAttribute("class", cls);
+  if (cls === "link"){
+    l.setAttribute("pathLength", "1");
+    l.style.strokeDasharray = "1";
+    l.style.strokeDashoffset = "0";
+  }
+  svg.appendChild(l);
+  return { a, b, el: l };
+}
+EDGES.forEach(([a, b]) => baseRefs.push(mkLine(byId[a], byId[b], "base")));
+
+function sizeSvg(){
+  const r = sky.getBoundingClientRect();
+  const w = r.width || 800, h = r.height || 500;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  const put = o => {
+    o.el.setAttribute("x1", o.a.x / 100 * w);
+    o.el.setAttribute("y1", o.a.y / 100 * h);
+    o.el.setAttribute("x2", o.b.x / 100 * w);
+    o.el.setAttribute("y2", o.b.y / 100 * h);
+  };
+  baseRefs.forEach(put);
+  linkRefs.forEach(put);
+}
+
+/* ---------- 星星 ---------- */
+P.forEach(p => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "st";
+  b.style.left = p.x + "%";
+  b.style.top = p.y + "%";
+  const s = (0.78 + Math.min(p.deg, 6) * 0.115).toFixed(2);
+  b.style.setProperty("--s", s);
+  b.style.setProperty("--d", ((p.id * 1.73) % 6).toFixed(2) + "s");
+  b.setAttribute("aria-label", p.item[0]);
+  b.innerHTML = '<i class="halo"></i><i class="core"></i><i class="ring"></i><i class="mark">✦</i>';
+  b.addEventListener("pointerenter", () => showTip(p));
+  b.addEventListener("pointerleave", hideTip);
+  starsBox.appendChild(b);
+  p.el = b;
+});
+
+/* 点击星图：取离触点最近的那颗星，避免窄屏上相邻星的热区互相抢 */
+sky.addEventListener("click", e => {
+  if (rolling) return;
+  const r = sky.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  let best = null, bestD = 1e9;
+  P.forEach(p => {
+    const dx = p.x / 100 * r.width - mx;
+    const dy = p.y / 100 * r.height - my;
+    const d = Math.hypot(dx, dy);
+    if (d < bestD){ bestD = d; best = p; }
+  });
+  if (best && bestD <= Math.max(26, r.width * 0.045)){
+    hideTip();
+    pick(best, false);
+  }
+});
+
+/* ---------- 状态 ---------- */
+const LS_CHAIN = "sky.chain", LS_DONE = "sky.done", LS_SEEN = "sky.seen";
+const readArr = k => {
+  try { const v = JSON.parse(localStorage.getItem(k) || "[]"); return Array.isArray(v) ? v : []; }
+  catch(e){ return []; }
+};
+let chain = readArr(LS_CHAIN).filter(id => byId[id]);
+let seen = readArr(LS_SEEN).filter(id => byId[id]);
+let doneList = readArr(LS_DONE);
+
+let current = null, rolling = false;
+
+function save(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+/* ---------- 选中 ---------- */
+function pick(p, silent){
+  if (rolling) return;
+  current = p;
+
+  P.forEach(q => q.el.classList.toggle("on", q === p));
+  $("kicker").textContent = "No." + pad(p.id) + " · " + p.item[1];
+  const t = $("title");
+  t.textContent = p.item[0];
+  t.classList.remove("settle");
+  void t.offsetWidth;
+  t.classList.add("settle");
+  $("meta").innerHTML =
+    p.item[2] + ' <span class="sep">·</span> ' + p.item[3] +
+    ' <span class="sep">·</span> 落在星图的' + ZONE[p.g];
+  $("doneBtn").disabled = false;
+
+  placeCallout(p);
+  hideTip();
+
+  if (!seen.includes(p.id)){
+    seen.push(p.id);
+    p.el.classList.add("seen");
+    save(LS_SEEN, seen);
+  }
+
+  if (!silent){
+    const lastId = chain[chain.length - 1];
+    if (lastId !== p.id){
+      if (lastId){
+        const o = mkLine(byId[lastId], p, "link");
+        o.el.style.strokeDashoffset = "1";
+        linkRefs.push(o);
+        sizeSvg();
+        requestAnimationFrame(() => { o.el.style.strokeDashoffset = "0"; });
+      }
+      chain.push(p.id);
+      if (chain.length > 80) chain = chain.slice(-80);
+      save(LS_CHAIN, chain);
+      updateStats();
+    }
+  }
+}
+
+function placeCallout(p){
+  $("coNo").textContent = "No." + pad(p.id);
+  $("coT").textContent = p.item[0];
+  const cw = sky.clientWidth || 800;
+  const half = Math.min(130, Math.max(84, cw * 0.17));
+  const px = Math.min(Math.max(p.x / 100 * cw, half + 6), cw - half - 6);
+  callout.style.left = px + "px";
+  callout.style.top = p.y + "%";
+  callout.style.transform = (p.y < 60 ? "translate(-50%,24px)" : "translate(-50%,calc(-100% - 24px))");
+  callout.classList.add("show");
+}
+
+function showTip(p){
+  if (p === current) return;
+  const cw = sky.clientWidth || 800;
+  const px = Math.min(Math.max(p.x / 100 * cw, 74), cw - 74);
+  tipEl.textContent = p.item[0];
+  tipEl.style.left = px + "px";
+  tipEl.style.top = p.y + "%";
+  tipEl.classList.add("show");
+  P.forEach(q => q.el.classList.toggle("hot", q === p));
+  sky.classList.add("hovering");
+}
+function hideTip(){
+  tipEl.classList.remove("show");
+  P.forEach(q => q.el.classList.remove("hot"));
+  sky.classList.remove("hovering");
+}
+
+/* ---------- 抽一颗：光沿着星座跑 ---------- */
+function roll(){
+  if (rolling) return;
+  rolling = true;
+  $("roll").disabled = true;
+
+  const pool = P.filter(p => p !== current);
+  const target = pool[Math.floor(Math.random() * pool.length)];
+  const startIdx = current ? P.indexOf(current) : Math.floor(Math.random() * P.length);
+
+  const seq = [];
+  for (let i = 0; i < 22; i++) seq.push(P[(startIdx + i) % P.length]);
+  seq.push(target);
+
+  let k = 0, lastEl = null;
+  (function next(){
+    if (lastEl) lastEl.classList.remove("spin");
+    if (k >= seq.length){
+      setTimeout(() => {
+        if (lastEl) lastEl.classList.remove("spin");
+        rolling = false;
+        $("roll").disabled = false;
+        pick(target, false);
+      }, 180);
+      return;
+    }
+    const q = seq[k++];
+    q.el.classList.add("spin");
+    lastEl = q.el;
+    setTimeout(next, 46);
+  })();
+}
+
+/* ---------- 统计 / 清单 ---------- */
+function updateStats(){
+  const links = Math.max(0, chain.length - 1);
+  $("stats").innerHTML =
+    `已点亮 <b>${seen.length}</b><span class="sep">/</span>${P.length}` +
+    `<span class="sep">·</span>已做 <b>${doneList.length}</b> 件` +
+    (links ? `<span class="sep">·</span>连线 <b>${links}</b>` : "");
+  $("allNo").textContent = pad(P.length);
+  $("tag").textContent = "夜空 · " + pad(seen.length) + " / " + P.length + " 已点亮";
+  renderDone();
+  paintStates();
+}
+
+function doneTitles(){
+  return doneList.map(x => (typeof x === "string" ? x : x.t));
+}
+
+function paintStates(){
+  const dt = doneTitles();
+  P.forEach(p => {
+    p.el.classList.toggle("seen", seen.includes(p.id));
+    p.el.classList.toggle("done", dt.includes(p.item[0]));
+  });
+  paintRows();
+}
+
+function renderDone(){
+  const box = $("doneBox"), list = $("doneList");
+  $("doneNo").textContent = pad(doneList.length);
+  box.style.display = doneList.length ? "" : "none";
+  list.innerHTML = "";
+  if (!doneList.length) return;
+  doneList.forEach(x => {
+    const title = typeof x === "string" ? x : x.t;
+    const ts = typeof x === "string" ? null : x.ts;
+    const it = P.find(p => p.item[0] === title);
+    const row = document.createElement("div");
+    row.className = "row";
+    row.style.cursor = "default";
+    row.innerHTML =
+      `<span class="tm">${it ? "No." + pad(it.id) : "—"}</span>` +
+      `<span class="tt"><span class="ck">✓</span>${title}</span>` +
+      `<span class="mt">${ts ? fmtTime(ts) : ""}</span>`;
+    list.appendChild(row);
+  });
+}
+
+function fmtTime(ts){
+  const d = new Date(ts), now = new Date();
+  const hm = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  if (d.toDateString() === now.toDateString()) return "今天 " + hm;
+  return pad(d.getMonth() + 1) + "." + pad(d.getDate()) + " " + hm;
+}
+
+function markDone(){
+  if (!current){ toast("先抽一颗星"); return; }
+  const title = current.item[0];
+  if (doneTitles().includes(title)){ toast("这颗星已经记下过啦"); return; }
+  doneList.push({ t: title, ts: Date.now() });
+  save(LS_DONE, doneList);
+  updateStats();
+  toast("记下了 · 已做 " + doneList.length + " 件");
+}
+
+let toastTimer;
+function toast(msg){
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1700);
+}
+
+function renderGrid(){
+  const g = $("grid");
+  g.innerHTML = "";
+  P.slice().sort((a, b) => a.id - b.id).forEach(p => {
+    const b = document.createElement("button");
+    b.className = "row";
+    b.innerHTML =
+      `<span class="tm"><span class="st-dot"></span>No.${pad(p.id)}</span>` +
+      `<span class="tt">${p.item[0]}</span>` +
+      `<span class="mt">${p.item[2]}</span>`;
+    b.addEventListener("pointerenter", () => {
+      p.el.classList.add("hot");
+      sky.classList.add("hovering");
+      b.classList.add("lit");
+    });
+    b.addEventListener("pointerleave", () => {
+      p.el.classList.remove("hot");
+      sky.classList.remove("hovering");
+      b.classList.remove("lit");
+    });
+    b.onclick = () => {
+      if (rolling) return;
+      hideTip();
+      pick(p, false);
+      const y = sky.getBoundingClientRect().top + window.scrollY - 88;
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    };
+    g.appendChild(b);
+    p.row = b;
+  });
+}
+
+function paintRows(){
+  P.forEach(p => { if (p.row) p.row.classList.toggle("seen", seen.includes(p.id)); });
+}
+
+/* ---------- 抹掉连线（两步确认） ---------- */
+let armed = false, armTimer;
+$("resetSky").addEventListener("click", () => {
+  if (!armed){
+    armed = true;
+    $("resetSky").textContent = "再点一次，抹掉连线";
+    armTimer = setTimeout(() => { armed = false; $("resetSky").textContent = "抹掉连线"; }, 3200);
+    return;
+  }
+  clearTimeout(armTimer);
+  armed = false;
+  $("resetSky").textContent = "抹掉连线";
+  chain = [];
+  save(LS_CHAIN, chain);
+  linkRefs.forEach(o => o.el.remove());
+  linkRefs.length = 0;
+  current = null;
+  P.forEach(q => q.el.classList.remove("on"));
+  callout.classList.remove("show");
+  $("doneBtn").disabled = true;
+  $("roll").disabled = false;
+  $("kicker").textContent = "此刻 · 星图还是空的";
+  $("title").textContent = "抽一颗星，它就是你今天要做的事。";
+  $("meta").textContent = "三十九颗星，三十九件小事 · 抽过的会留下一条线";
+  updateStats();
+  toast("连线已抹掉 · 点亮过的星还在");
+});
+
+/* ---------- 事件 ---------- */
+$("roll").addEventListener("click", roll);
+$("doneBtn").addEventListener("click", markDone);
+$("clearBtn").addEventListener("click", e => {
+  e.preventDefault(); e.stopPropagation();
+  doneList = [];
+  save(LS_DONE, doneList);
+  updateStats();
+  toast("已清空执行记录");
+});
+document.addEventListener("keydown", e => {
+  if (e.code === "Space" && !e.repeat){ e.preventDefault(); roll(); }
+  if (e.key === "Enter" && !e.repeat && !$("doneBtn").disabled){
+    const a = document.activeElement;
+    if (!a || a === document.body || a === document.documentElement){ e.preventDefault(); markDone(); }
+  }
+});
+window.addEventListener("resize", () => { sizeSvg(); if (current) placeCallout(current); });
+
+/* ---------- 复原上一次的星图 ---------- */
+sizeSvg();
+if (chain.length){
+  for (let i = 1; i < chain.length; i++){
+    const o = mkLine(byId[chain[i - 1]], byId[chain[i]], "link");
+    linkRefs.push(o);
+  }
+  sizeSvg();
+  pick(byId[chain[chain.length - 1]], true);
+  $("kicker").textContent = "上一次 · No." + pad(chain[chain.length - 1]);
+}
+
+renderGrid();
+updateStats();
+paintRows();
+</script>
+</body>
+</html>

@@ -972,9 +972,24 @@ a{color:inherit;}
   .stat-card{padding:15px 14px 13px;}
   .bars{height:104px;gap:4px;}
   .bar-d{font-size:.46rem;letter-spacing:-.02em;}
-  .vrow{grid-template-columns:86px minmax(0,1fr) 88px;font-size:.62rem;}
-  .vrow .v-dev,.vrow .v-ref{display:none;}
-  .vrow .v-path{text-align:right;}
+  /* 手机上把「设备 / 浏览器」和「来源」挪到第二行：一行放不下五列，
+     但设备信息（安卓 / iOS、哪个程序打开的）恰恰是最想看的，不能藏掉 */
+  .vrow{
+    grid-template-columns:86px minmax(0,1fr) 88px;
+    grid-template-areas:"time where path" "dev dev ref";
+    row-gap:3px;align-items:start;font-size:.62rem;
+  }
+  .vhead{grid-template-areas:"time where path";align-items:center;}
+  .vrow .v-time{grid-area:time;}
+  .vrow .v-where{grid-area:where;}
+  .vrow .v-dev{grid-area:dev;display:block;}
+  .vrow .v-ref{grid-area:ref;display:block;text-align:right;font-size:.58rem;}
+  .vrow .v-path{grid-area:path;text-align:right;}
+  /* 表头只留三列（放在后面，盖住上面 .vrow .v-dev 的 display） */
+  .vrow.vhead .v-dev,.vrow.vhead .v-ref{display:none;}
+  /* 手机上时区小字默认占地方太大了，只留「时区与归属地矛盾」的那条红字 */
+  .vrow .v-where .v-sub{display:none;}
+  .vrow .v-where .v-sub.is-warn{display:block;}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none !important;transition:none !important;}

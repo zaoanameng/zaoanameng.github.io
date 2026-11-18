@@ -34,9 +34,9 @@
   ]);
   const MODMAP = {};
   PAGES.forEach((m) => (MODMAP[m.key] = m));
-  /* 只给站主看的三页：日记、相册、阁楼。
+  /* 只给站主看的四页：日记、相册、阁楼、留言板。
      别人打开只会看到一句站主的话，登录站主账号后才恢复成完整内容。 */
-  const OWNER_ONLY = { diary: 1, photo: 1, attic: 1 };
+  const OWNER_ONLY = { diary: 1, photo: 1, attic: 1, guest: 1 };
   const GONE_LINE = "The master says it no longer needs to exist. It may reopen someday should fate permit.";
 
   /* 目录页的大号手绘小图标 */

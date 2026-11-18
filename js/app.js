@@ -34,6 +34,10 @@
   ]);
   const MODMAP = {};
   PAGES.forEach((m) => (MODMAP[m.key] = m));
+  /* 只给站主看的三页：日记、相册、阁楼。
+     别人打开只会看到一句站主的话，登录站主账号后才恢复成完整内容。 */
+  const OWNER_ONLY = { diary: 1, photo: 1, attic: 1 };
+  const GONE_LINE = "The master says it no longer needs to exist. It may reopen someday should fate permit.";
 
   /* 目录页的大号手绘小图标 */
   const CAT_ART = {
@@ -619,6 +623,7 @@
     await API.auth.signOut();
     S.session = null;
     S.isOwner = false;
+    try { localStorage.setItem("am.owner", "0"); } catch (_) {}
     toast("logged out");
     renderCurrent();
   }
@@ -659,6 +664,8 @@
     }
     S.ownerRow = row;
     S.isOwner = !!(row && S.session && row.uid === S.session.user.id);
+    /* 阁楼（attic.html）是独立文件，只能用本地标记告诉它「来的是主人」 */
+    try { localStorage.setItem("am.owner", S.isOwner ? "1" : "0"); } catch (_) {}
 
     const p = Object.assign({}, window.SITE_DEFAULTS);
     if (row) {
@@ -821,6 +828,12 @@
     MODULES.forEach((m) => {
       const el = list.querySelector('[data-count="' + m.key + '"]');
       if (!el) return;
+      /* 上锁的页（日记、相册、阁楼）：访客连数量都不给看 */
+      if (OWNER_ONLY[m.key] && !S.isOwner) {
+        el.classList.remove("is-loading");
+        el.textContent = "—";
+        return;
+      }
       /* 还没有内容的模块（阁楼）：不取数字，固定一句状态话 */
       if (m.countText) {
         el.classList.remove("is-loading");
@@ -1122,7 +1135,8 @@
     if (!m) return go("contents");
 
     const head = $("#view-module .mod-head");
-    if (head) head.classList.toggle("is-hidden", key === "about" || key === "attic");
+    const gated = OWNER_ONLY[key] && !S.isOwner;
+    if (head) head.classList.toggle("is-hidden", gated || key === "about" || key === "attic");
     $("#modTitle").textContent = m.name;
     $("#modSub").textContent = m.sub;
     const mini = $("#modMini");
@@ -1145,6 +1159,8 @@
     }
 
     const body = $("#modBody");
+    /* 上锁的页：不给按钮、不加载内容，只留那句站主的话 */
+    if (gated) { actions.innerHTML = ""; body.innerHTML = goneNote(); return; }
     body.innerHTML = loadingHTML();
     try {
       if (key === "diary") await viewDiary(body);
@@ -1155,6 +1171,11 @@
     } catch (err) {
       body.innerHTML = emptyState("这个角落暂时打不开", API.errText(err));
     }
+  }
+
+  /* 锁掉的页：只留一句手写体的话，别的什么都不给 */
+  function goneNote() {
+    return '<div class="gone-note"><p>' + esc(GONE_LINE) + "</p></div>";
   }
 
   function emptyState(text, sub) {

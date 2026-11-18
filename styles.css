@@ -642,6 +642,19 @@ a{color:inherit;}
   margin-top:9px;font-size:.7rem;letter-spacing:.08em;color:var(--ink-3);
 }
 
+/* ---------- 锁掉的页（日记 / 相册 / 阁楼）：只留一句站主的话 ---------- */
+.gone-note{
+  display:flex;align-items:center;justify-content:center;
+  min-height:min(50vh,400px);
+  padding:44px 24px 64px;
+}
+.gone-note p{
+  max-width:23em;margin:0;text-align:center;
+  font-family:var(--hand);font-size:1.68rem;line-height:1.8;
+  letter-spacing:.012em;color:var(--ink-2);
+  transform:rotate(-.35deg);
+}
+
 /* ---------- 阁楼：一扇开向夜空的窗 ---------- */
 .attic-room{
   max-width:980px;margin:1.4vh auto 4vh;
@@ -927,6 +940,8 @@ a{color:inherit;}
   .watermark{font-size:clamp(1.7rem,9vw,2.6rem);}
 }
 @media (max-width:520px){
+  .gone-note{min-height:44vh;padding:34px 22px 54px;}
+  .gone-note p{font-size:1.34rem;line-height:1.88;}
   .catalog-sub{font-size:.9rem;line-height:1.75;max-width:16em;margin-top:14px;}
   .brush{font-size:clamp(1.9rem,10.6vw,3rem);}
   .cover-sub{font-size:1.15rem;letter-spacing:.05em;}

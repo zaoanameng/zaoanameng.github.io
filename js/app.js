@@ -163,6 +163,22 @@
     return { device, browser, os };
   }
 
+  /* 光看「Chrome」分不清是什么程序：普通 Chrome、Edge、桌面应用的内嵌窗口、
+     无头浏览器，UA 里其实各有各的记号。这里把记号翻成一句人能看懂的话。 */
+  function uaTag(ua) {
+    if (!ua) return "";
+    const v = (re) => { const m = ua.match(re); return m ? String(m[1]).split(".")[0] : ""; };
+    if (/HeadlessChrome/i.test(ua)) return ("无头 Chromium " + v(/HeadlessChrome\/([\d.]+)/)).trim();
+    if (/Electron\//i.test(ua)) return ("套壳 Electron " + v(/Electron\/([\d.]+)/)).trim();
+    if (/MicroMessenger/i.test(ua)) return ("微信内置 " + v(/MicroMessenger\/([\d.]+)/)).trim();
+    if (/Edg\//i.test(ua)) return ("Edge " + v(/Edg\/([\d.]+)/)).trim();
+    if (/OPR\//i.test(ua)) return ("Opera " + v(/OPR\/([\d.]+)/)).trim();
+    if (/Firefox\//i.test(ua)) return ("Firefox " + v(/Firefox\/([\d.]+)/)).trim();
+    if (/Chrome\//i.test(ua)) return ("Chrome " + v(/Chrome\/([\d.]+)/)).trim();
+    if (/Safari\//i.test(ua)) return ("Safari " + v(/Version\/([\d.]+)/)).trim();
+    return "";
+  }
+
   /* 时区 → 大致地区（只在 IP 接口拿不到时兜底）。
      注意：国内设备几乎全部报 Asia/Shanghai，光靠时区只能得到「上海」。 */
   const TZ_REGION = {
@@ -381,7 +397,9 @@
       device: info.device,
       browser: info.browser,
       os: info.os,
-      screen: window.innerWidth + "×" + window.innerHeight
+      screen: window.innerWidth + "×" + window.innerHeight,
+      /* 完整 UA：光看「Chrome」分不清是浏览器还是套壳程序（比如桌面端应用的内嵌窗口） */
+      ua: (navigator.userAgent || "").slice(0, 300) || null
     };
 
     /* 直接写 REST、不要返回行 —— 访客没有读权限，带 representation 会被拒 */
@@ -1062,7 +1080,8 @@
 
     const vrowHTML = (r, bot) => {
       const mis = tzMismatch(r.region, r.tz);
-      const devSub = [r.lang, r.screen].filter(Boolean).join(" · ");
+      const tag = uaTag(r.ua);
+      const devSub = [r.lang, r.screen, tag].filter(Boolean).join(" · ");
       return '<div class="vrow' + (bot ? " is-bot" : "") + '"' + (bot ? ' title="疑似机器人访问，不计入统计"' : "") + ">" +
         '<span class="v-time"><b class="v-main">' + esc(shortStamp(r.created_at)) + "</b>" +
           (r.n > 1 ? '<em class="v-n">×' + r.n + "</em>" : "") + "</span>" +
@@ -1073,7 +1092,7 @@
         '<span class="v-dev"><b class="v-main">' + esc(DEV_LABEL[r.device] || r.device || "—") +
           (r.browser ? " · " + esc(r.browser) : "") +
           (r.os ? " · " + esc(r.os) : "") + "</b>" +
-          (devSub ? subLine(devSub, false, "浏览器语言 · 视口尺寸") : "") + "</span>" +
+          (devSub ? subLine(devSub, false, r.ua ? "完整 UA：" + r.ua : "浏览器语言 · 视口尺寸") : "") + "</span>" +
         '<span class="v-ref"><b class="v-main">' + (bot ? "机器人" : esc(REF_LABEL[r.ref_type] || "直接访问")) + "</b></span>" +
         '<span class="v-path"><b class="v-main">' + esc(PATH_LABEL[normPath(r.path)] || normPath(r.path)) + "</b></span>" +
       "</div>";
